@@ -1,1 +1,4 @@
-add_executable(libusbd main.c)
+cmake_minimum_required(VERSION 2.6)
+project(ippusbd)
+
+add_subdirectory(src)
