@@ -3,4 +3,7 @@ project(ippusbd)
 
 add_subdirectory(usb)
 
-add_executable(ippusbd ippusbd.c)
+add_executable(ippusbd
+	ippusbd.c
+	http/http.c
+	)
