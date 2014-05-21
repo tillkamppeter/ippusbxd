@@ -57,6 +57,19 @@ error:
 	return NULL;
 }
 
+packet *reveive_packet(http_conn *conn)
+{
+}
+
+http_conn *accept_conn(http_sock *this)
+{
+	http_conn *conn = calloc(1, sizeof *msg);
+
+
+
+	return conn;
+}
+
 void close_http(http_handle *this)
 {
 	close(this->sd);

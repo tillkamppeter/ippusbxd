@@ -20,7 +20,11 @@ typedef struct {
 
 typedef struct {
 	int sd;
-} http_handle;
+} http_sock;
+
+typedef struct {
+	int sd;
+} http_conn;
 
 http_handle *open_http();
 void close_http();
