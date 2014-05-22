@@ -27,6 +27,7 @@ typedef struct {
 typedef struct {
 	size_t spare_size;
 	uint8_t spare_buf;
+	uint8_t is_completed;
 	http_conn *parent_session;
 } message;
 

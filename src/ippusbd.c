@@ -20,19 +20,24 @@ int main(int argc, char *argv[])
 			goto conn_error;
 		}
 
+		// TODO: spawn thread
+
 		message *msg = get_message(conn);
 		if (msg == NULL) {
 			ERR("Generating message failed");
 			goto conn_error;
 		}
 
-		packet *pkt = get_packet(msg);
-		if (pkt == NULL) {
-			ERR("Receiving packet failed");
-			goto conn_error;
-		}
+		while (!msg->is_completed) {
 
-		printf("%.*s", (int)pkt->size, pkt->buffer);
+			packet *pkt = get_packet(msg);
+			if (pkt == NULL) {
+				ERR("Receiving packet failed");
+				goto conn_error;
+			}
+
+			printf("%.*s", (int)pkt->size, pkt->buffer);
+		}
 
 	conn_error:
 		if (conn != NULL)
