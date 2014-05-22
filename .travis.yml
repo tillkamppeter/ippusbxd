@@ -1,3 +1,4 @@
+install: libusb-dev
 language: c
 script: make
 compiler:
