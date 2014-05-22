@@ -1,7 +1,9 @@
-install: libusb-dev
 language: c
 script: make
 compiler:
     - clang
     - gcc
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y libusb-dev
 
