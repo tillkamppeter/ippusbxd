@@ -1,3 +1,7 @@
+IPPUSBD
+=======
+![Coverity analysis status](https://scan.coverity.com/projects/2293/badge.svg)
+
 License
 =======
 Copyright (C) 2014 Daniel Dressler
