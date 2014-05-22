@@ -45,5 +45,5 @@ cleanup:
 	if (sock != NULL)
 		close_http(sock);
 
-	return 1;
+	return 0;
 }
