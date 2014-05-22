@@ -1,4 +1,4 @@
-# IPPUSBD [![Coverity analysis status](https://scan.coverity.com/projects/2293)](https://scan.coverity.com/projects/2293/badge.svg) [![Build Status](https://travis-ci.org/daniel-dressler/ippusbd.svg?branch=master)](https://travis-ci.org/daniel-dressler/ippusbd)
+# IPPUSBD [![Coverity analysis status](https://scan.coverity.com/projects/2293/badge.svg)](https://scan.coverity.com/projects/2293) [![Build Status](https://travis-ci.org/daniel-dressler/ippusbd.svg?branch=master)](https://travis-ci.org/daniel-dressler/ippusbd)
 
 License
 =======
