@@ -1,6 +1,10 @@
 #pragma once
 #include <stdint.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define ERR(x, ...) do { fprintf(stderr, "Error: " x "\n", ##__VA_ARGS__); } while (0)
 
@@ -12,6 +16,8 @@
 
 typedef struct {
 	int sd;
+	struct sockaddr_in6 info;
+	socklen_t info_size;
 } http_sock;
 
 typedef struct {
@@ -31,6 +37,7 @@ typedef struct packet {
 } packet;
 
 http_sock *open_http();
+uint32_t get_port_number(http_sock *);
 http_conn *accept_conn(http_sock *);
 message *get_message(http_conn *);
 packet *get_packet(message *);

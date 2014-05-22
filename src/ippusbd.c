@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "http/http.h"
 
@@ -9,6 +10,8 @@ int main(int argc, char *argv[])
 		goto cleanup;
 
 	// TODO: print port then fork
+	uint32_t port = get_port_number(sock);
+	printf("%u\n", port);
 
 	while (1) {
 		http_conn *conn = accept_conn(sock);
@@ -31,7 +34,6 @@ int main(int argc, char *argv[])
 
 		printf("%.*s", (int)pkt->size, pkt->buffer);
 
-		puts("Hello world");
 	conn_error:
 		if (conn != NULL)
 			free(conn);

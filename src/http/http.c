@@ -1,11 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include "http.h"
 
 
@@ -28,7 +23,7 @@ http_sock *open_http()
 	// Configure socket params
 	struct sockaddr_in6 addr;
 	addr.sin6_family = AF_INET6;
-	addr.sin6_port = htons(8080); // let kernel decide
+	addr.sin6_port = htons(0); // let kernel decide
 	addr.sin6_addr = in6addr_any;
 
 	// Bind to localhost
@@ -52,8 +47,25 @@ error:
 		close(this->sd);
 	if (this != NULL)
 		free(this);
-
 	return NULL;
+}
+
+uint32_t get_port_number(http_sock *sock)
+{
+	sock->info_size = sizeof sock->info;
+	int query_status = getsockname(
+	                               sock->sd,
+	                               (struct sockaddr *) &(sock->info),
+	                               &(sock->info_size));
+	if (query_status == -1) {
+		ERR("query on socket port number failed");
+		goto error;
+	}
+
+	return ntohs(sock->info.sin6_port);
+
+error:
+	return 0;
 }
 
 packet *get_packet(message *msg)
