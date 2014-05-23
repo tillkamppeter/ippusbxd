@@ -37,6 +37,8 @@ int main(int argc, char *argv[])
 			}
 
 			printf("%.*s", (int)pkt->size, pkt->buffer);
+
+			free_packet(pkt);
 		}
 
 	conn_error:

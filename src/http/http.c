@@ -84,6 +84,15 @@ packet *get_packet(message *msg)
 	
 	// Read until we have atleast one packet
 	size_t size_read = recv(msg->parent_session->sd, buf, capacity, 0);
+
+	// 5th case of http message end is when
+	// client closes the connection.
+	// Defined here: http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
+	// Note: this method will not be used by clients
+	// if they expect a responce.
+	if (size_read == 0) {
+		msg->is_completed = TRUE;
+	}
 	
 	// Did we receive more than a packets worth?
 	
@@ -105,6 +114,12 @@ error:
 	if (pkt != NULL)
 		free(pkt);
 	return NULL;
+}
+
+void free_packet(packet *pkt)
+{
+	free(pkt->buffer);
+	free(pkt);
 }
 
 message *get_message(http_conn *conn)

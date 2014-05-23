@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 
 #define ERR(x, ...) do { fprintf(stderr, "Error: " x "\n", ##__VA_ARGS__); } while (0)
+#define TRUE 1
+#define FALSE 0
 
 #define HTTP_MAX_PENDING_CONNS 5
 #define BUFFER_STEP (1 << 13)
@@ -42,4 +44,5 @@ uint32_t get_port_number(http_sock *);
 http_conn *accept_conn(http_sock *);
 message *get_message(http_conn *);
 packet *get_packet(message *);
+void free_packet(packet *);
 void close_http(http_sock *);
