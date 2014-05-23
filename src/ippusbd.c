@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 		http_conn *conn = accept_conn(sock);
 		if (conn == NULL) {
 			ERR("Opening connection failed");
-			goto conn_error;
+			goto conn_cleanup;
 		}
 
 		// TODO: spawn thread
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 		message *msg = get_message(conn);
 		if (msg == NULL) {
 			ERR("Generating message failed");
-			goto conn_error;
+			goto conn_cleanup;
 		}
 
 		while (!msg->is_completed) {
@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 			packet *pkt = get_packet(msg);
 			if (pkt == NULL) {
 				ERR("Receiving packet failed");
-				goto conn_error;
+				goto conn_cleanup;
 			}
 
 			printf("%.*s", (int)pkt->size, pkt->buffer);
@@ -41,11 +41,11 @@ int main(int argc, char *argv[])
 			free_packet(pkt);
 		}
 
-	conn_error:
+	conn_cleanup:
 		if (conn != NULL)
 			free(conn);
 		if (msg != NULL)
-			free(msg);
+			free_message(msg);
 	}
 
 cleanup:

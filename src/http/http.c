@@ -143,6 +143,11 @@ error:
 	return NULL;
 }
 
+void free_message(message *msg)
+{
+	free(msg);
+}
+
 http_conn *accept_conn(http_sock *sock)
 {
 	http_conn *conn = calloc(1, sizeof *conn);
@@ -164,6 +169,7 @@ error:
 		free(conn);
 	return NULL;
 }
+
 
 void close_http(http_sock *this)
 {
