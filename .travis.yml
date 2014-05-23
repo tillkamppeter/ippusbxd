@@ -7,3 +7,21 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y libusb-1.0-0-dev
 
+
+# Coverity autoscan
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "Vht4R4dBaQgIiqpf4QMfjfSOp/4SgvreoV8QHvzQf0dEdxTaWbbfNwfUthPo68FsD754oK2C+LkuSRedBN6q/0O6+Fj1574S3IvkjvZCt/GBDwB2Lj8v4yiTGRv7YKz/hQglssqXs76KZN++0OqRDHW+5ya4QsT9sZOMGosWnPQ="
+
+addons:
+  coverity_scan:
+    project:
+      name: "daniel-dressler/ippusbd"
+      description: "IPP over USB daemon driver for linux"
+    notification_email: danieru.dressler@gmail.com
+    build_command_prepend:
+    build_command: make
+    branch_pattern: master
+
