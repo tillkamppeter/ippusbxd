@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -25,6 +26,7 @@ http_sock *open_http()
 
 	// Configure socket params
 	struct sockaddr_in6 addr;
+	memset(&addr, 0, sizeof addr);
 	addr.sin6_family = AF_INET6;
 	addr.sin6_port = htons(0); // let kernel decide
 	addr.sin6_addr = in6addr_any;
