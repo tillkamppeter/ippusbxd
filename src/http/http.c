@@ -48,10 +48,12 @@ http_sock *open_http()
 	return this;
 
 error:
-	if (this->sd != -1)
-		close(this->sd);
-	if (this != NULL)
+	if (this != NULL) {
+		if (this->sd != -1) {
+			close(this->sd);
+		}
 		free(this);
+	}
 	return NULL;
 }
 
