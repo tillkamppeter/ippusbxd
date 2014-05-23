@@ -170,6 +170,11 @@ error:
 	return NULL;
 }
 
+void close_conn(http_conn *conn)
+{
+	close(conn->sd);
+	free(conn);
+}
 
 void close_http(http_sock *this)
 {

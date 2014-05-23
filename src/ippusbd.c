@@ -42,10 +42,10 @@ int main(int argc, char *argv[])
 		}
 
 	conn_cleanup:
-		if (conn != NULL)
-			free(conn);
 		if (msg != NULL)
 			free_message(msg);
+		if (conn != NULL)
+			close_conn(conn);
 	}
 
 cleanup:
