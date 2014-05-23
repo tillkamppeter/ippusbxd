@@ -40,11 +40,14 @@ typedef struct packet {
 } packet;
 
 http_sock *open_http();
+void close_http(http_sock *);
 uint32_t get_port_number(http_sock *);
+
 http_conn *accept_conn(http_sock *);
 void close_conn(http_conn *);
+
 message *get_message(http_conn *);
 void free_message(message *);
+
 packet *get_packet(message *);
 void free_packet(packet *);
-void close_http(http_sock *);

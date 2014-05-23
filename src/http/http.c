@@ -57,6 +57,12 @@ error:
 	return NULL;
 }
 
+void close_http(http_sock *this)
+{
+	close(this->sd);
+	free(this);
+}
+
 uint32_t get_port_number(http_sock *sock)
 {
 	sock->info_size = sizeof sock->info;
@@ -74,6 +80,7 @@ uint32_t get_port_number(http_sock *sock)
 error:
 	return 0;
 }
+
 
 packet *get_packet(message *msg)
 {
@@ -126,6 +133,7 @@ void free_packet(packet *pkt)
 	free(pkt);
 }
 
+
 message *get_message(http_conn *conn)
 {
 	message *msg = calloc(1, sizeof *msg);
@@ -147,6 +155,7 @@ void free_message(message *msg)
 {
 	free(msg);
 }
+
 
 http_conn *accept_conn(http_sock *sock)
 {
@@ -174,12 +183,6 @@ void close_conn(http_conn *conn)
 {
 	close(conn->sd);
 	free(conn);
-}
-
-void close_http(http_sock *this)
-{
-	close(this->sd);
-	free(this);
 }
 
 /* Valid methods for determining http request
