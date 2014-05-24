@@ -26,16 +26,38 @@ typedef struct {
 	int sd;
 } http_conn;
 
+enum http_request_t {
+	HTTP_UNSET,
+	HTTP_UNKNOWN,
+	HTTP_CHUNKED,
+	HTTP_CONTENT_LENGTH
+};
+
 typedef struct {
+	enum http_request_t type;
+
 	size_t spare_size;
 	uint8_t spare_buf;
+
+	uint32_t unreceived_size;
+	uint32_t received_size;
 	uint8_t is_completed;
+
 	http_conn *parent_session;
 } message;
 
 typedef struct packet {
-	size_t size;
+	// size http headers claim for packet
+	size_t claimed_size;
+
+	// size of filled content
+	size_t filled_size;
+
+	// max capacity of buffer
+	// can be exapanded
+	size_t buffer_capacity;
 	uint8_t *buffer;
+
 	message *parent_message;
 } packet;
 

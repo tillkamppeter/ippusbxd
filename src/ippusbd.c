@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 				goto conn_cleanup;
 			}
 
-			printf("%.*s", (int)pkt->size, pkt->buffer);
+			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
 			free_packet(pkt);
 		}
