@@ -218,11 +218,15 @@ packet *get_packet(message *msg)
 		goto error;
 	}
 
+
 	// Assemble packet
 	pkt->buffer = buf;
 	pkt->buffer_capacity = capacity;
 	pkt->filled_size = size_read;
 	pkt->parent_message = msg;
+
+	sniff_request_type(pkt);
+
 	return pkt;	
 	 
 error:
