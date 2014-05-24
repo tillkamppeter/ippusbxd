@@ -163,7 +163,7 @@ enum http_request_t sniff_request_type(packet *pkt)
 		goto do_ret;
 	}
 
-	char *xfer_encode_str = "Transfer-Encoding: ";
+	char xfer_encode_str[] = "Transfer-Encoding: ";
 	int size = inspect_header_field(pkt, header_end, xfer_encode_str,
 	                                                   sizeof xfer_encode_str);
 	if (size >= 0) {
@@ -172,7 +172,7 @@ enum http_request_t sniff_request_type(packet *pkt)
 		goto do_ret;
 	}
 
-	char *content_length_str = "Content-Length: ";
+	char content_length_str[] = "Content-Length: ";
 	size = inspect_header_field(pkt, header_end, content_length_str,
 	                                                sizeof content_length_str);
 	if (size >= 0) {
