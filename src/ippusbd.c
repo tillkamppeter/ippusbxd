@@ -8,19 +8,24 @@
 #include "http/http.h"
 #include "usb/usb.h"
 
-void start_daemon(uint32_t port)
+void start_daemon(uint32_t requested_port)
 {
 	// Capture USB device
 	usb_sock_t *usb = open_usb();
 
 	// Capture a socket
-	http_sock_t *sock = open_http(port);
+	http_sock_t *sock = open_http(requested_port);
 	if (sock == NULL)
 		goto cleanup;
 
 	// TODO: print port then fork
-	port = get_port_number(sock);
-	printf("%u\n", port);
+	uint32_t real_port = get_port_number(sock);
+	if (requested_port != 0 && requested_port != real_port) {
+		ERR("Received port number did not match requested port number. "
+		    "The requested port number may be too high.");
+		goto cleanup;
+	}
+	printf("%u\n", real_port);
 
 	while (1) {
 		http_conn_t *conn = accept_conn(sock);
@@ -75,7 +80,7 @@ int main(int argc, char *argv[])
 					ERR("Port number must be non-negative");
 					return 1;
 				}
-				if (port > UINT_MAX) {
+				if (port > (long long)UINT_MAX) {
 					ERR("Port number must be %u or less, but not negative", UINT_MAX);
 					return 2;
 				}
