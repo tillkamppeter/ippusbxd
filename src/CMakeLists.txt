@@ -4,7 +4,7 @@ project(ippusbd)
 
 add_subdirectory(usb)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra")
 
 include_directories(${LIBUSB_INCLUDE_DIR})
 add_executable(ippusbd
