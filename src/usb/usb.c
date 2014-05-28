@@ -16,5 +16,5 @@ usb_sock *open_usb()
 		ERR("libusb init failed with error code %d", status);
 		return NULL;
 	}
-	return 1;
+	return NULL;
 }

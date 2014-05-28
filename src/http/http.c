@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -86,9 +87,9 @@ int inspect_header_field(packet *pkt, int header_end, char *search_key, int key_
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
 	if (pos != NULL) {
-		int num_pos = (pos - pkt->buffer) + key_size;
-		int num_end = -1;
-		int i;
+		uint32_t num_pos = (pos - pkt->buffer) + key_size;
+		int32_t num_end = -1;
+		uint32_t i;
 		for (i = num_pos; i < pkt->filled_size; i++) {
 			if (isdigit(pkt->buffer[i])) {
 				// Find first non-digit
@@ -105,7 +106,7 @@ int inspect_header_field(packet *pkt, int header_end, char *search_key, int key_
 		// Stringify buffer for atoi()
 		char original_char = pkt->buffer[num_end];
 		pkt->buffer[num_end] = '\0';
-		int val = atoi(pkt->buffer + num_pos);
+		int val = atoi((const char *)pkt->buffer + num_pos);
 		pkt->buffer[num_end] = original_char;
 		return val;
 	}
@@ -141,7 +142,7 @@ enum http_request_t sniff_request_type(packet *pkt)
 	 */
 	// Find header
 	int header_end = -1;
-	int i;
+	uint32_t i;
 	for (i = 0; i < pkt->filled_size; i++) {
 		// two \r\n pairs
 		if ((i + 3) < pkt->filled_size &&
