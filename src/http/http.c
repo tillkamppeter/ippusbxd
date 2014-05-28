@@ -10,7 +10,7 @@
 #include "http.h"
 
 
-http_sock_t *open_http()
+http_sock_t *open_http(uint32_t port)
 {
 	http_sock_t *this = calloc(1, sizeof *this);
 	if (this == NULL) {
@@ -30,14 +30,15 @@ http_sock_t *open_http()
 	struct sockaddr_in6 addr;
 	memset(&addr, 0, sizeof addr);
 	addr.sin6_family = AF_INET6;
-	addr.sin6_port = htons(0); // let kernel decide
+	addr.sin6_port = htons(port);
 	addr.sin6_addr = in6addr_any;
 
 	// Bind to localhost
 	if (bind(this->sd,
 	        (struct sockaddr *)&addr,
 	        sizeof addr) < 0) {
-		ERR("bind failed");
+		ERR("Bind on port failed."
+			" Requested port may be taken or require root permissions.");
 		goto error;
 	}
 

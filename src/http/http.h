@@ -61,7 +61,7 @@ typedef struct packet {
 	http_message_t *parent_message;
 } http_packet_t;
 
-http_sock_t *open_http();
+http_sock_t *open_http(uint32_t);
 void close_http(http_sock_t *);
 uint32_t get_port_number(http_sock_t *);
 
