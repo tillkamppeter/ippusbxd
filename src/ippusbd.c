@@ -2,9 +2,14 @@
 #include <stdlib.h>
 
 #include "http/http.h"
+#include "usb/usb.h"
 
 int main(int argc, char *argv[])
 {
+	// Capture USB device
+	usb_sock *usb = open_usb();
+
+	// Capture a socket
 	http_sock *sock = open_http();
 	if (sock == NULL)
 		goto cleanup;
