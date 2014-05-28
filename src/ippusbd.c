@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <unistd.h>
+#include <getopt.h>
+
 #include "http/http.h"
 #include "usb/usb.h"
 
-int main(int argc, char *argv[])
+void start_daemon()
 {
 	// Capture USB device
 	usb_sock_t *usb = open_usb();
@@ -56,6 +59,25 @@ int main(int argc, char *argv[])
 cleanup:
 	if (sock != NULL)
 		close_http(sock);
+}
 
+int main(int argc, char *argv[])
+{
+	int c;
+	while ((c = getopt(argc, argv, "puo")) != -1) {
+		switch (c) {
+			case 'p':
+				// Request specific port
+				break;
+			case 'u':
+				// [u]sb device to bind with
+				break;
+			case 'o':
+				// Error log file
+				break;
+		}
+	}
+
+	start_daemon();
 	return 0;
 }
