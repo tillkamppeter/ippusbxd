@@ -6,3 +6,5 @@ ippusbd:
 clean:
 	cd exe; \
 	make clean
+
+full: clean ippusbd
