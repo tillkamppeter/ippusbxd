@@ -7,10 +7,10 @@
 int main(int argc, char *argv[])
 {
 	// Capture USB device
-	usb_sock *usb = open_usb();
+	usb_sock_t *usb = open_usb();
 
 	// Capture a socket
-	http_sock *sock = open_http();
+	http_sock_t *sock = open_http();
 	if (sock == NULL)
 		goto cleanup;
 
@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 	printf("%u\n", port);
 
 	while (1) {
-		http_conn *conn = accept_conn(sock);
+		http_conn_t *conn = accept_conn(sock);
 		if (conn == NULL) {
 			ERR("Opening connection failed");
 			goto conn_cleanup;
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 
 		// TODO: spawn thread
 
-		message *msg = get_message(conn);
+		http_message_t *msg = get_message(conn);
 		if (msg == NULL) {
 			ERR("Generating message failed");
 			goto conn_cleanup;
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
 		while (!msg->is_completed) {
 
-			packet *pkt = get_packet(msg);
+			http_packet_t *pkt = get_packet(msg);
 			if (pkt == NULL) {
 				ERR("Receiving packet failed");
 				goto conn_cleanup;

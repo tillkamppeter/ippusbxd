@@ -20,11 +20,11 @@ typedef struct {
 	int sd;
 	struct sockaddr_in6 info;
 	socklen_t info_size;
-} http_sock;
+} http_sock_t;
 
 typedef struct {
 	int sd;
-} http_conn;
+} http_conn_t;
 
 enum http_request_t {
 	HTTP_UNSET,
@@ -43,8 +43,8 @@ typedef struct {
 	uint32_t received_size;
 	uint8_t is_completed;
 
-	http_conn *parent_session;
-} message;
+	http_conn_t *parent_session;
+} http_message_t;
 
 typedef struct packet {
 	// size http headers claim for packet
@@ -58,18 +58,18 @@ typedef struct packet {
 	size_t buffer_capacity;
 	uint8_t *buffer;
 
-	message *parent_message;
-} packet;
+	http_message_t *parent_message;
+} http_packet_t;
 
-http_sock *open_http();
-void close_http(http_sock *);
-uint32_t get_port_number(http_sock *);
+http_sock_t *open_http();
+void close_http(http_sock_t *);
+uint32_t get_port_number(http_sock_t *);
 
-http_conn *accept_conn(http_sock *);
-void close_conn(http_conn *);
+http_conn_t *accept_conn(http_sock_t *);
+void close_conn(http_conn_t *);
 
-message *get_message(http_conn *);
-void free_message(message *);
+http_message_t *get_message(http_conn_t *);
+void free_message(http_message_t *);
 
-packet *get_packet(message *);
-void free_packet(packet *);
+http_packet_t *get_packet(http_message_t *);
+void free_packet(http_packet_t *);

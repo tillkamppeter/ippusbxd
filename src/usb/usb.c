@@ -3,12 +3,9 @@
 #include <libusb.h>
 
 #include "../http/http.h"
+#include "usb.h"
 
-typedef struct {
-	int blah;
-} usb_sock;
-
-usb_sock *open_usb()
+usb_sock_t *open_usb()
 {
 	int status = 1;
 	status = libusb_init(NULL);

@@ -10,9 +10,9 @@
 #include "http.h"
 
 
-http_sock *open_http()
+http_sock_t *open_http()
 {
-	http_sock *this = calloc(1, sizeof *this);
+	http_sock_t *this = calloc(1, sizeof *this);
 	if (this == NULL) {
 		ERR("callocing this failed");
 		goto error;
@@ -59,13 +59,13 @@ error:
 	return NULL;
 }
 
-void close_http(http_sock *this)
+void close_http(http_sock_t *this)
 {
 	close(this->sd);
 	free(this);
 }
 
-uint32_t get_port_number(http_sock *sock)
+uint32_t get_port_number(http_sock_t *sock)
 {
 	sock->info_size = sizeof sock->info;
 	int query_status = getsockname(
@@ -83,7 +83,7 @@ error:
 	return 0;
 }
 
-int inspect_header_field(packet *pkt, int header_end, char *search_key, int key_size)
+int inspect_header_field(http_packet_t *pkt, int header_end, char *search_key, int key_size)
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
 	if (pos != NULL) {
@@ -113,7 +113,7 @@ int inspect_header_field(packet *pkt, int header_end, char *search_key, int key_
 	return -1;
 }
 
-enum http_request_t sniff_request_type(packet *pkt)
+enum http_request_t sniff_request_type(http_packet_t *pkt)
 {
 	enum http_request_t type;
 	/* Valid methods for determining http request
@@ -188,7 +188,7 @@ do_ret:
 	return type;
 }
 
-packet *get_packet(message *msg)
+http_packet_t *get_packet(http_message_t *msg)
 {
 	size_t capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
 	uint8_t *buf = malloc(capacity * (sizeof *buf));
@@ -213,7 +213,7 @@ packet *get_packet(message *msg)
 	
 	// Did we receive more than a packets worth?
 	
-	packet *pkt = calloc(1, sizeof *pkt);
+	http_packet_t *pkt = calloc(1, sizeof *pkt);
 	if (pkt == NULL) {
 		ERR("calloc failed for packet");
 		goto error;
@@ -238,16 +238,16 @@ error:
 	return NULL;
 }
 
-void free_packet(packet *pkt)
+void free_packet(http_packet_t *pkt)
 {
 	free(pkt->buffer);
 	free(pkt);
 }
 
 
-message *get_message(http_conn *conn)
+http_message_t *get_message(http_conn_t *conn)
 {
-	message *msg = calloc(1, sizeof *msg);
+	http_message_t *msg = calloc(1, sizeof *msg);
 	if (msg == NULL) {
 		ERR("calloc failed on this");
 		goto error;
@@ -262,15 +262,15 @@ error:
 	return NULL;
 }
 
-void free_message(message *msg)
+void free_message(http_message_t *msg)
 {
 	free(msg);
 }
 
 
-http_conn *accept_conn(http_sock *sock)
+http_conn_t *accept_conn(http_sock_t *sock)
 {
-	http_conn *conn = calloc(1, sizeof *conn);
+	http_conn_t *conn = calloc(1, sizeof *conn);
 	if (conn == NULL) {
 		ERR("Calloc for connection struct failed");
 		goto error;
@@ -290,7 +290,7 @@ error:
 	return NULL;
 }
 
-void close_conn(http_conn *conn)
+void close_conn(http_conn_t *conn)
 {
 	close(conn->sd);
 	free(conn);

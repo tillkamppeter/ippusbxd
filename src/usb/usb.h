@@ -2,6 +2,6 @@
 
 typedef struct {
 	int blah;
-} usb_sock;
+} usb_sock_t;
 
-usb_sock *open_usb();
+usb_sock_t *open_usb();
