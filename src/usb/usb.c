@@ -10,16 +10,16 @@
 
 usb_sock_t *open_usb()
 {
-	libusb_context *context;
+	usb_sock_t *usb = calloc(1, sizeof *usb);
 	int status = 1;
-	status = libusb_init(&context);
+	status = libusb_init(&usb->context);
 	if (status < 0) {
 		ERR("libusb init failed with error code %d", status);
 		goto error;
 	}
 
 	libusb_device **device_list = NULL;
-	ssize_t device_count = libusb_get_device_list(context, &device_list);
+	ssize_t device_count = libusb_get_device_list(usb->context, &device_list);
 	if (device_count < 0) {
 		ERR("failed to get list of usb devices");
 		goto error;
@@ -48,8 +48,7 @@ usb_sock_t *open_usb()
 
 	// TODO: if kernel claimed device ask kernel to let it go
 
-	libusb_device_handle *printer_handle;
-	status = libusb_open(printer_device, &printer_handle);
+	status = libusb_open(printer_device, &usb->printer);
 	if (status != 0) {
 		ERR("failed to open device");
 		goto error;
@@ -57,6 +56,9 @@ usb_sock_t *open_usb()
 
 
 	// TODO: close printer with libusb_close()
+
+
+	return usb;
 
 error:
 	if (device_list != NULL) {
@@ -66,8 +68,19 @@ error:
 		free(device_list);
 	}
 	// TODO: move this state into a usb_sock_t
-	if (context != NULL) {
-		libusb_exit(context);
+	if (usb != NULL) {
+		if (usb->context != NULL) {
+			libusb_exit(usb->context);
+		}
+		free(usb);
 	}
 	return NULL;
+}
+
+void close_usb(usb_sock_t *usb)
+{
+	libusb_close(usb->printer);
+	libusb_exit(usb->context);
+	free(usb);
+	return;
 }

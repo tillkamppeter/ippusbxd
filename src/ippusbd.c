@@ -69,7 +69,7 @@ cleanup_http:
 		close_http(sock);
 cleanup_usb:
 	if (usb != NULL)
-		free(usb);
+		close_usb(usb);
 	return;
 }
 
