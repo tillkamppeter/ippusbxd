@@ -12,18 +12,20 @@ void start_daemon(uint32_t requested_port)
 {
 	// Capture USB device
 	usb_sock_t *usb = open_usb();
+	if (usb == NULL)
+		goto cleanup_usb;
 
 	// Capture a socket
 	http_sock_t *sock = open_http(requested_port);
 	if (sock == NULL)
-		goto cleanup;
+		goto cleanup_http;
 
 	// TODO: print port then fork
 	uint32_t real_port = get_port_number(sock);
 	if (requested_port != 0 && requested_port != real_port) {
 		ERR("Received port number did not match requested port number. "
 		    "The requested port number may be too high.");
-		goto cleanup;
+		goto cleanup_http;
 	}
 	printf("%u\n", real_port);
 
@@ -62,9 +64,13 @@ void start_daemon(uint32_t requested_port)
 			close_conn(conn);
 	}
 
-cleanup:
+cleanup_http:
 	if (sock != NULL)
 		close_http(sock);
+cleanup_usb:
+	if (usb != NULL)
+		free(usb);
+	return;
 }
 
 int main(int argc, char *argv[])
