@@ -37,8 +37,8 @@ http_sock_t *open_http(uint32_t port)
 	if (bind(this->sd,
 	        (struct sockaddr *)&addr,
 	        sizeof addr) < 0) {
-		ERR("Bind on port failed."
-			" Requested port may be taken or require root permissions.");
+		ERR("Bind on port failed. "
+		    "Requested port may be taken or require root permissions.");
 		goto error;
 	}
 
@@ -84,34 +84,35 @@ error:
 	return 0;
 }
 
-int inspect_header_field(http_packet_t *pkt, int header_end, char *search_key, int key_size)
+int inspect_header_field(http_packet_t *pkt, int header_end, char *search_key,
+                                                                   int key_size)
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
-	if (pos != NULL) {
-		uint32_t num_pos = (pos - pkt->buffer) + key_size;
-		int32_t num_end = -1;
-		uint32_t i;
-		for (i = num_pos; i < pkt->filled_size; i++) {
-			if (isdigit(pkt->buffer[i])) {
-				// Find first non-digit
-				while (i < pkt->filled_size && !isdigit(pkt->buffer[i])) {
-					i++;
-				}
-				num_end = i;
-			}
-		}
-		if (num_end < 0) {
-			return -1;
-		}
+	if (pos == NULL)
+		return -1;
 
-		// Stringify buffer for atoi()
-		char original_char = pkt->buffer[num_end];
-		pkt->buffer[num_end] = '\0';
-		int val = atoi((const char *)pkt->buffer + num_pos);
-		pkt->buffer[num_end] = original_char;
-		return val;
+	uint32_t num_pos = (pos - pkt->buffer) + key_size;
+	int32_t num_end = -1;
+	uint32_t i;
+	for (i = num_pos; i < pkt->filled_size; i++) {
+		if (!isdigit(pkt->buffer[i]))
+			continue;
+		// Find first non-digit
+		while (i < pkt->filled_size && !isdigit(pkt->buffer[i])) {
+			i++;
+		}
+		num_end = i;
 	}
-	return -1;
+	if (num_end < 0) {
+		return -1;
+	}
+
+	// Stringify buffer for atoi()
+	char original_char = pkt->buffer[num_end];
+	pkt->buffer[num_end] = '\0';
+	int val = atoi((const char *)pkt->buffer + num_pos);
+	pkt->buffer[num_end] = original_char;
+	return val;
 }
 
 enum http_request_t sniff_request_type(http_packet_t *pkt)
@@ -167,7 +168,7 @@ enum http_request_t sniff_request_type(http_packet_t *pkt)
 
 	char xfer_encode_str[] = "Transfer-Encoding: ";
 	int size = inspect_header_field(pkt, header_end, xfer_encode_str,
-	                                                   sizeof xfer_encode_str);
+	                                                sizeof xfer_encode_str);
 	if (size >= 0) {
 		type = HTTP_CHUNKED;
 		pkt->claimed_size = size;
@@ -176,7 +177,7 @@ enum http_request_t sniff_request_type(http_packet_t *pkt)
 
 	char content_length_str[] = "Content-Length: ";
 	size = inspect_header_field(pkt, header_end, content_length_str,
-	                                                sizeof content_length_str);
+	                                              sizeof content_length_str);
 	if (size >= 0) {
 		type = HTTP_CONTENT_LENGTH;
 		pkt->claimed_size = size;
@@ -205,7 +206,8 @@ http_packet_t *get_packet(http_message_t *msg)
 
 	// 5th case of http message end is when
 	// client closes the connection.
-	// Defined here: http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
+	// Defined here:
+	// http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
 	// Note: this method will not be used by clients
 	// if they expect a responce.
 	if (size_read == 0) {

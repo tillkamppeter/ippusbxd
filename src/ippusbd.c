@@ -79,24 +79,25 @@ int main(int argc, char *argv[])
 	long long port = 0;
 	while ((c = getopt(argc, argv, "p:u:o:")) != -1) {
 		switch (c) {
-			case 'p':
-				// Request specific port
-				port = atoi(optarg);
-				if (port < 0) {
-					ERR("Port number must be non-negative");
-					return 1;
-				}
-				if (port > (long long)UINT_MAX) {
-					ERR("Port number must be %u or less, but not negative", UINT_MAX);
-					return 2;
-				}
-				break;
-			case 'u':
-				// [u]sb device to bind with
-				break;
-			case 'o':
-				// Error log file
-				break;
+		case 'p':
+			// Request specific port
+			port = atoi(optarg);
+			if (port < 0) {
+				ERR("Port number must be non-negative");
+				return 1;
+			}
+			if (port > (long long)UINT_MAX) {
+				ERR("Port number must be %u or less, "
+				    "but not negative", UINT_MAX);
+				return 2;
+			}
+			break;
+		case 'u':
+			// [u]sb device to bind with
+			break;
+		case 'o':
+			// Error log file
+			break;
 		}
 	}
 
