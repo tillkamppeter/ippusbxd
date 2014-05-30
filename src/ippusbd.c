@@ -78,9 +78,8 @@ int main(int argc, char *argv[])
 	int c;
 	long long port = 0;
 	int show_help = 0;
-	while ((c = getopt(argc, argv, "?hp:u:o:")) != -1) {
+	while ((c = getopt(argc, argv, "hp:u:o:")) != -1) {
 		switch (c) {
-		case '?':
 		case 'h':
 			show_help = 1;
 			break;
@@ -107,7 +106,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (show_help) {
-		printf("\n"
+		printf(
 		"Usage: %s -v <vendorid> -m <productid> -p <port>\n"
 		"Options:\n"
 		"  -h           Show this help message\n"
