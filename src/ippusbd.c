@@ -77,8 +77,12 @@ int main(int argc, char *argv[])
 {
 	int c;
 	long long port = 0;
-	while ((c = getopt(argc, argv, "p:u:o:")) != -1) {
+	int show_help = 0;
+	while ((c = getopt(argc, argv, "hp:u:o:")) != -1) {
 		switch (c) {
+		case 'h':
+			show_help = 1;
+			break;
 		case 'p':
 			// Request specific port
 			port = atoi(optarg);
@@ -99,6 +103,20 @@ int main(int argc, char *argv[])
 			// Error log file
 			break;
 		}
+	}
+
+	if (show_help) {
+		printf("\n"
+		"Usage: %s -v <vendorid> -m <productid> -p <port>\n"
+		"Options:\n"
+		"  -h           Show this help message\n"
+		"  -v <vid>     Vendor ID of desired printer\n"
+		"  -m <pid>     Product ID of desired printer\n"
+		"  -s <serial>  Serial number of desired printer\n"
+		"  -p <portnum> Port number to bind against\n"
+		"  -l           Send errors to syslog\n"
+		, argv[0]);
+		return 0;
 	}
 
 	start_daemon((uint32_t)port);
