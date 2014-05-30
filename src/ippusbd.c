@@ -78,8 +78,9 @@ int main(int argc, char *argv[])
 	int c;
 	long long port = 0;
 	int show_help = 0;
-	while ((c = getopt(argc, argv, "hp:u:o:")) != -1) {
+	while ((c = getopt(argc, argv, "?hp:u:o:")) != -1) {
 		switch (c) {
+		case '?':
 		case 'h':
 			show_help = 1;
 			break;
