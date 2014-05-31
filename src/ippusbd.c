@@ -80,6 +80,7 @@ int main(int argc, char *argv[])
 	int show_help = 0;
 	while ((c = getopt(argc, argv, "hp:u:o:")) != -1) {
 		switch (c) {
+		case '?':
 		case 'h':
 			show_help = 1;
 			break;
