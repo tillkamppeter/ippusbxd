@@ -1,0 +1,2 @@
+- USB timeout, 30 seconds.
+- allocation of interfaces to small and large requests.
