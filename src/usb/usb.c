@@ -45,12 +45,14 @@ int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 	return ippusb_interface_count;
 }
 
+// TODO: refactor this
 usb_sock_t *open_usb()
 {
 	usb_sock_t *usb = calloc(1, sizeof *usb);
 	int status = 1;
 	status = libusb_init(&usb->context);
 	if (status < 0) {
+		// TODO: use libusb_error_name for better status errors
 		ERR("libusb init failed with error code %d", status);
 		goto error;
 	}
@@ -73,6 +75,7 @@ usb_sock_t *open_usb()
 		struct libusb_device_descriptor desc;
 		libusb_get_device_descriptor(candidate, &desc);
 
+		// TODO: use libusb_cpu_to_le16 to fix endianess
 		if (desc.idVendor != 0x03f0 &&
 		    desc.idProduct != 0xc511)
 			continue;
@@ -126,8 +129,23 @@ found_target_device:
 
 	// Open every IPP-USB interface ==-----------------------------------==
 	usb->num_interfaces = selected_ipp_interface_count;
-	usb->interface_indexes = calloc(selected_ipp_interface_count,
+	usb->interface_indexes = calloc(usb->num_interfaces,
 	                                sizeof *(usb->interface_indexes));
+	usb->endpoints_in = calloc(usb->num_interfaces,
+	                           sizeof *(usb->endpoints_in));
+	usb->endpoints_out = calloc(usb->num_interfaces,
+	                            sizeof *(usb->endpoints_out));
+	if (usb->interface_indexes == NULL ||
+	    usb->endpoints_in == NULL ||
+	    usb->endpoints_out == NULL) {
+		ERR("Failed to alloc space for interfaces");
+		goto error;
+	}
+	for (uint32_t i = 0; i < usb->num_interfaces; i++) {
+		usb->interface_indexes[i] = -1;
+		usb->endpoints_in[i] = -1;
+		usb->endpoints_out[i] = -1;
+	}
 
 	struct libusb_config_descriptor *config = NULL;
 	status = libusb_get_config_descriptor(printer_device,
@@ -177,6 +195,25 @@ found_target_device:
 			                                 alt_num);
 			interfs--;
 			usb->interface_indexes[interfs] = interf_num;
+
+			// Store interface's two endpoints
+			for (int end_i = 0; end_i < alt->bNumEndpoints;
+			     end_i++) {
+				const struct libusb_endpoint_descriptor *end = NULL;
+				end = &alt->endpoint[end_i];
+
+				// TODO: handle endianness
+				usb->max_packet_size = end->wMaxPacketSize;
+
+				// High bit set means endpoint
+				// is an INPUT or IN endpoint.
+				uint8_t address = end->bEndpointAddress;
+				if (address & 0x80)
+					usb->endpoints_in[interfs] = address;
+				else
+					usb->endpoints_out[interfs] = address;
+			}
+
 			break;
 		}
 	}
