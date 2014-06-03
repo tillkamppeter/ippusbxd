@@ -112,17 +112,12 @@ found_target_device:
 	}
 
 
-	// TODO: close printer with libusb_close()
-
-
+	libusb_free_device_list(device_list, 1);
 	return usb;
 
 error:
 	if (device_list != NULL) {
-		for (ssize_t i = 0; i < device_count; i++) {
-			libusb_unref_device(device_list[i]);
-		}
-		free(device_list);
+		libusb_free_device_list(device_list, 1);
 	}
 	// TODO: move this state into a usb_sock_t
 	if (usb != NULL) {
