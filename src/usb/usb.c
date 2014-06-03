@@ -223,7 +223,6 @@ error:
 	if (device_list != NULL) {
 		libusb_free_device_list(device_list, 1);
 	}
-	// TODO: move this state into a usb_sock_t
 	if (usb != NULL) {
 		if (usb->context != NULL) {
 			libusb_exit(usb->context);
