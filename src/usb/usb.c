@@ -129,22 +129,11 @@ found_target_device:
 
 	// Open every IPP-USB interface ==-----------------------------------==
 	usb->num_interfaces = selected_ipp_interface_count;
-	usb->interface_indexes = calloc(usb->num_interfaces,
-	                                sizeof *(usb->interface_indexes));
-	usb->endpoints_in = calloc(usb->num_interfaces,
-	                           sizeof *(usb->endpoints_in));
-	usb->endpoints_out = calloc(usb->num_interfaces,
-	                            sizeof *(usb->endpoints_out));
-	if (usb->interface_indexes == NULL ||
-	    usb->endpoints_in == NULL ||
-	    usb->endpoints_out == NULL) {
+	usb->interfaces = calloc(usb->num_interfaces,
+	                         sizeof(*usb->interfaces));
+	if (usb->interfaces == NULL) {
 		ERR("Failed to alloc space for interfaces");
-		goto error;
-	}
-	for (uint32_t i = 0; i < usb->num_interfaces; i++) {
-		usb->interface_indexes[i] = -1;
-		usb->endpoints_in[i] = -1;
-		usb->endpoints_out[i] = -1;
+		goto error_interfaces;
 	}
 
 	struct libusb_config_descriptor *config = NULL;
@@ -194,7 +183,7 @@ found_target_device:
 			                                 interf_num,
 			                                 alt_num);
 			interfs--;
-			usb->interface_indexes[interfs] = interf_num;
+			usb->interfaces[interfs].interface_number = interf_num;
 
 			// Store interface's two endpoints
 			for (int end_i = 0; end_i < alt->bNumEndpoints;
@@ -208,10 +197,12 @@ found_target_device:
 				// High bit set means endpoint
 				// is an INPUT or IN endpoint.
 				uint8_t address = end->bEndpointAddress;
+				struct usb_interface *uf =
+						usb->interfaces + interfs;
 				if (address & 0x80)
-					usb->endpoints_in[interfs] = address;
+					uf->endpoint_in = address;
 				else
-					usb->endpoints_out[interfs] = address;
+					uf->endpoint_out = address;
 			}
 
 			break;
@@ -225,6 +216,9 @@ found_target_device:
 error_config:
 	if (config != NULL)
 		libusb_free_config_descriptor(config);
+error_interfaces:
+	if (usb->interfaces != NULL)
+		free(usb->interfaces);
 error:
 	if (device_list != NULL) {
 		libusb_free_device_list(device_list, 1);
@@ -242,8 +236,8 @@ error:
 void close_usb(usb_sock_t *usb)
 {
 	for (uint32_t i = 0; i < usb->num_interfaces; i++) {
-		int index = usb->interface_indexes[i];
-		libusb_release_interface(usb->printer, index);
+		int number = usb->interfaces[i].interface_number;
+		libusb_release_interface(usb->printer, number);
 	}
 	libusb_close(usb->printer);
 	libusb_exit(usb->context);
