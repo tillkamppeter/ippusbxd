@@ -123,8 +123,6 @@ found_target_device:
 		ERR("failed to open device");
 		goto error;
 	}
-	// Ask kernel to let go of any interfaces we need if it claimed them
-	libusb_set_auto_detach_kernel_driver(usb->printer, 1);
 
 
 	// Open every IPP-USB interface ==-----------------------------------==
@@ -156,6 +154,17 @@ found_target_device:
 			alt = &interf->altsetting[alt_num];
 			if (!is_ippusb_interface(alt))
 				continue;
+
+			// Release kernel driver
+			if (libusb_kernel_driver_active(usb->printer,
+			                                interf_num) == 1) {
+				// Only linux supports this
+				// other platforms will fail
+				// thus we ignore the error code
+				// it either works or it does not
+				libusb_detach_kernel_driver(usb->printer,
+				                            interf_num);
+			}
 
 			// Claim the whole interface
 			status = libusb_claim_interface(
