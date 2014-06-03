@@ -8,6 +8,7 @@ typedef struct {
 
 	uint32_t num_interfaces;
 	struct libusb_interface *interfaces;
+	int *interface_indexes; // needed to release interfaces
 } usb_sock_t;
 
 usb_sock_t *open_usb();
