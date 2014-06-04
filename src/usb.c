@@ -3,7 +3,7 @@
 
 #include <libusb.h>
 
-#include "../http/http.h"
+#include "http.h"
 #include "usb.h"
 
 #define USB_CONTEXT NULL

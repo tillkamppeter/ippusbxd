@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "http/http.h"
-#include "usb/usb.h"
+#include "http.h"
+#include "usb.h"
 
 void start_daemon(uint32_t requested_port)
 {
