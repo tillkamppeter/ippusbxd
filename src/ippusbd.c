@@ -86,8 +86,10 @@ int main(int argc, char *argv[])
 	int c;
 	long long port = 0;
 	int show_help = 0;
+	setting_log_target = LOGGING_STDERR;
+
 	// TODO: support long options
-	while ((c = getopt(argc, argv, "hp:u:o:")) != -1) {
+	while ((c = getopt(argc, argv, "hp:u:s:l")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -109,8 +111,9 @@ int main(int argc, char *argv[])
 		case 'u':
 			// [u]sb device to bind with
 			break;
-		case 'o':
-			// Error log file
+		case 'l':
+			// Redirect logging to syslog
+			setting_log_target = LOGGING_SYSLOG;
 			break;
 		// TODO: support --syslog for more daemon like errors
 		}
@@ -125,7 +128,7 @@ int main(int argc, char *argv[])
 		"  -m <pid>     Product ID of desired printer\n"
 		"  -s <serial>  Serial number of desired printer\n"
 		"  -p <portnum> Port number to bind against\n"
-		"  -l           Send errors to syslog\n"
+		"  -l           Redirect logging to syslog\n"
 		, argv[0]);
 		return 0;
 	}

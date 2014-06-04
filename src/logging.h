@@ -1,8 +1,8 @@
 #pragma once
 
 enum log_target {
-	LOG_STDERR,
-	LOG_SYSLOG
+	LOGGING_STDERR,
+	LOGGING_SYSLOG
 };
 
 extern enum log_target setting_log_target;
