@@ -152,6 +152,8 @@ found_target_device:
 	
 			const struct libusb_interface_descriptor *alt = NULL;
 			alt = &interf->altsetting[alt_num];
+
+			// Skip non-IPP-USB interfaces
 			if (!is_ippusb_interface(alt))
 				continue;
 
@@ -251,4 +253,16 @@ void close_usb(usb_sock_t *usb)
 	libusb_exit(usb->context);
 	free(usb);
 	return;
+}
+
+void send_packet_usb(usb_sock_t *usb, http_packet_t *pkt)
+{
+	// TODO: transfer in max length chunks
+	int size_sent = 0;
+	int timeout = 1000; // in milliseconds
+	int status = libusb_bulk_transfer(usb->printer,
+	                                  usb->interfaces[0].endpoint_out,
+	                                  pkt->buffer, pkt->filled_size,
+	                                  &size_sent, timeout);
+	printf("sent %d bytes over status %d\n", size_sent, status);
 }

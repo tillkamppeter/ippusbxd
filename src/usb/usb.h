@@ -19,3 +19,5 @@ typedef struct {
 
 usb_sock_t *open_usb();
 void close_usb(usb_sock_t *);
+
+void send_packet_usb(usb_sock_t *, http_packet_t *);

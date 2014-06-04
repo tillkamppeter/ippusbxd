@@ -54,6 +54,8 @@ void start_daemon(uint32_t requested_port)
 
 			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
+			send_packet_usb(usb, pkt);
+
 			free_packet(pkt);
 		}
 
