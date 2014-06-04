@@ -257,6 +257,7 @@ void close_usb(usb_sock_t *usb)
 
 void send_packet_usb(usb_sock_t *usb, http_packet_t *pkt)
 {
+	// TODO: lock priority interfaces
 	// TODO: transfer in max length chunks
 	int size_sent = 0;
 	int timeout = 1000; // in milliseconds
@@ -265,4 +266,35 @@ void send_packet_usb(usb_sock_t *usb, http_packet_t *pkt)
 	                                  pkt->buffer, pkt->filled_size,
 	                                  &size_sent, timeout);
 	printf("sent %d bytes over status %d\n", size_sent, status);
+}
+
+http_packet_t *get_packet_usb(usb_sock_t *usb)
+{
+	http_packet_t *pkt = calloc(1, sizeof *pkt);
+	if (pkt == NULL) {
+		ERR("failed to alloc space for packet in usb");
+		goto error;
+	}
+	pkt->buffer = calloc(1, 10000);
+	if (pkt->buffer == NULL) {
+		ERR("failed to alloc space for packet buffer in usb");
+		goto error;
+	}
+
+	int size_sent = 0;
+	int timeout = 1000; // in milliseconds
+	int status = libusb_bulk_transfer(usb->printer,
+	                                  usb->interfaces[0].endpoint_in,
+	                                  pkt->buffer, 10000,
+	                                  &size_sent, timeout);
+	printf("received %d bytes with status %d\n", size_sent, status);
+	pkt->filled_size = size_sent;
+
+	return pkt;
+
+error:
+	if (pkt != NULL) {
+		free_packet(pkt);
+	}
+	return NULL;
 }

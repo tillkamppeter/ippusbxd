@@ -57,7 +57,11 @@ void start_daemon(uint32_t requested_port)
 			send_packet_usb(usb, pkt);
 
 			free_packet(pkt);
+		http_packet_t *usb_pkt = get_packet_usb(usb);
+		printf("%.*s", (int)usb_pkt->filled_size, usb_pkt->buffer);
 		}
+
+
 
 	conn_cleanup:
 		if (msg != NULL)
