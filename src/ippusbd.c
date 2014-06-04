@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "http.h"
+#include "tcp.h"
 #include "usb.h"
 
 void start_daemon(uint32_t requested_port)
@@ -46,7 +46,7 @@ void start_daemon(uint32_t requested_port)
 
 		while (!msg->is_completed) {
 
-			http_packet_t *pkt = get_packet(msg);
+			http_packet_t *pkt = get_packet(conn, msg);
 			if (pkt == NULL) {
 				ERR("Receiving packet failed");
 				goto conn_cleanup;

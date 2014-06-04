@@ -12,6 +12,7 @@ include_directories(${LIBUSB_INCLUDE_DIR})
 add_executable(ippusbd
 ippusbd.c
 http.c
+tcp.c
 usb.c
 )
 target_link_libraries(ippusbd ${LIBUSB_LIBRARIES})
