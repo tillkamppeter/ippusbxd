@@ -103,7 +103,7 @@ usb_sock_t *open_usb()
 
 			// CONFTEST: Two or more interfaces are required
 			if (interface_count == 1) {
-				ERR("usb device has only one ipp interface "
+				CONF("usb device has only one ipp interface "
 				    "in violation of standard");
 				goto error;
 			}
