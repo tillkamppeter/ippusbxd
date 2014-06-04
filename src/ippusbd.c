@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
 	int c;
 	long long port = 0;
 	int show_help = 0;
+	// TODO: support long options
 	while ((c = getopt(argc, argv, "hp:u:o:")) != -1) {
 		switch (c) {
 		case '?':
@@ -109,6 +110,7 @@ int main(int argc, char *argv[])
 		case 'o':
 			// Error log file
 			break;
+		// TODO: support --syslog for more daemon like errors
 		}
 	}
 
