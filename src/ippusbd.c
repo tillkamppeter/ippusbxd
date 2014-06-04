@@ -6,6 +6,7 @@
 #include <getopt.h>
 
 #include "logging.h"
+#include "http.h"
 #include "tcp.h"
 #include "usb.h"
 

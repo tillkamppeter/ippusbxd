@@ -14,6 +14,7 @@ ippusbd.c
 http.c
 tcp.c
 usb.c
+logging.c
 )
 target_link_libraries(ippusbd ${LIBUSB_LIBRARIES})
 
