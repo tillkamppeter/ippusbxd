@@ -31,4 +31,4 @@ uint32_t get_port_number(struct tcp_sock_t *);
 struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *);
 void tcp_conn_close(struct tcp_conn_t *);
 
-struct http_packet_t *get_packet(struct tcp_conn_t *, struct http_message_t *);
+struct http_packet_t *tcp_packet_get(struct tcp_conn_t *, struct http_message_t *);

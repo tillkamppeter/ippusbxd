@@ -48,7 +48,7 @@ void start_daemon(uint32_t requested_port)
 
 		while (!msg->is_completed) {
 
-			struct http_packet_t *pkt = get_packet(conn, msg);
+			struct http_packet_t *pkt = tcp_packet_get(conn, msg);
 			if (pkt == NULL) {
 				ERR("Receiving packet failed");
 				goto conn_cleanup;

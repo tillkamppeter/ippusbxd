@@ -85,7 +85,7 @@ error:
 	return 0;
 }
 
-struct http_packet_t *get_packet(struct tcp_conn_t *tcp, struct http_message_t *msg)
+struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message_t *msg)
 {
 	size_t capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
 	uint8_t *buf = malloc(capacity * (sizeof *buf));
@@ -135,6 +135,7 @@ error:
 		free(pkt);
 	return NULL;
 }
+
 
 struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *sock)
 {
