@@ -8,10 +8,6 @@
 
 #include "http.h"
 
-#define ERR(x, ...) do { fprintf(stderr, "Error: " x "\n", ##__VA_ARGS__); } while (0)
-#define TRUE 1
-#define FALSE 0
-
 #define HTTP_MAX_PENDING_CONNS 5
 #define BUFFER_STEP (1 << 13)
 #define BUFFER_STEP_RATIO (2)

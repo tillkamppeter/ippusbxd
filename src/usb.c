@@ -3,8 +3,8 @@
 
 #include <libusb.h>
 
+#include "logging.h"
 #include "http.h"
-#include "tcp.h"
 #include "usb.h"
 
 #define USB_CONTEXT NULL

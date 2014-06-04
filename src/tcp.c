@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "logging.h"
 #include "tcp.h"
 
 
@@ -105,7 +106,7 @@ http_packet_t *get_packet(tcp_conn_t *tcp, http_message_t *msg)
 	// Note: this method will not be used by clients
 	// if they expect a responce.
 	if (size_read == 0) {
-		msg->is_completed = TRUE;
+		msg->is_completed = 1;
 	}
 	
 	// Did we receive more than a packets worth?
@@ -132,22 +133,6 @@ error:
 		free(buf);
 	if (pkt != NULL)
 		free(pkt);
-	return NULL;
-}
-
-http_message_t *tcp_message_get(tcp_conn_t *conn)
-{
-	http_message_t *msg = calloc(1, sizeof *msg);
-	if (msg == NULL) {
-		ERR("calloc failed on this");
-		goto error;
-	}
-
-	return msg;
-
-error:
-	if (msg != NULL)
-		free(msg);
 	return NULL;
 }
 

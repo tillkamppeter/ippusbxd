@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#include "logging.h"
 #include "tcp.h"
 #include "usb.h"
 
