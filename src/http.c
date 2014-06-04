@@ -7,9 +7,9 @@
 #include "logging.h"
 #include "http.h"
 
-http_message_t *http_message_new()
+struct http_message_t *http_message_new()
 {
-	http_message_t *msg = calloc(1, sizeof *msg);
+	struct http_message_t *msg = calloc(1, sizeof *msg);
 	if (msg == NULL) {
 		ERR("failed to alloc space for http message");
 		goto error;
@@ -24,8 +24,8 @@ error:
 }
 
 
-int inspect_header_field(http_packet_t *pkt, int header_end, char *search_key,
-                                                                   int key_size)
+int inspect_header_field(struct http_packet_t *pkt, int header_end,
+                         char *search_key, int key_size)
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
 	if (pos == NULL)
@@ -57,7 +57,7 @@ int inspect_header_field(http_packet_t *pkt, int header_end, char *search_key,
 
 
 
-enum http_request_t sniff_request_type(http_packet_t *pkt)
+enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 {
 	enum http_request_t type;
 	/* Valid methods for determining http request
@@ -133,12 +133,12 @@ do_ret:
 }
 
 
-void free_message(http_message_t *msg)
+void free_message(struct http_message_t *msg)
 {
 	free(msg);
 }
 
-void free_packet(http_packet_t *pkt)
+void free_packet(struct http_packet_t *pkt)
 {
 	free(pkt->buffer);
 	free(pkt);

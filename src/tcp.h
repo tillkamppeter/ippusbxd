@@ -14,21 +14,21 @@
 #define BUFFER_INIT_RATIO (1)
 #define BUFFER_MAX (1 << 20)
 
-typedef struct {
+struct tcp_sock_t {
 	int sd;
 	struct sockaddr_in6 info;
 	socklen_t info_size;
-} tcp_sock_t;
+};
 
-typedef struct {
+struct tcp_conn_t {
 	int sd;
-} tcp_conn_t;
+};
 
-tcp_sock_t *tcp_open(uint32_t);
-void tcp_close(tcp_sock_t *);
-uint32_t get_port_number(tcp_sock_t *);
+struct tcp_sock_t *tcp_open(uint32_t);
+void tcp_close(struct tcp_sock_t *);
+uint32_t get_port_number(struct tcp_sock_t *);
 
-tcp_conn_t *tcp_conn_accept(tcp_sock_t *);
-void tcp_conn_close(tcp_conn_t *);
+struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *);
+void tcp_conn_close(struct tcp_conn_t *);
 
-http_packet_t *get_packet(tcp_conn_t *, http_message_t *);
+struct http_packet_t *get_packet(struct tcp_conn_t *, struct http_message_t *);

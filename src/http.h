@@ -10,7 +10,7 @@ enum http_request_t {
 	HTTP_CONTENT_LENGTH
 };
 
-typedef struct {
+struct http_message_t {
 	enum http_request_t type;
 
 	size_t spare_size;
@@ -20,9 +20,9 @@ typedef struct {
 	uint32_t received_size;
 	uint8_t is_completed;
 
-} http_message_t;
+};
 
-typedef struct packet {
+struct http_packet_t {
 	// size http headers claim for packet
 	size_t claimed_size;
 
@@ -34,11 +34,11 @@ typedef struct packet {
 	size_t buffer_capacity;
 	uint8_t *buffer;
 
-	http_message_t *parent_message;
-} http_packet_t;
+	struct http_message_t *parent_message;
+};
 
-http_message_t *http_message_new();
-void free_message(http_message_t *);
+struct http_message_t *http_message_new();
+void free_message(struct http_message_t *);
 
-enum http_request_t sniff_request_type(http_packet_t *pkt);
-void free_packet(http_packet_t *);
+enum http_request_t sniff_request_type(struct http_packet_t *pkt);
+void free_packet(struct http_packet_t *);

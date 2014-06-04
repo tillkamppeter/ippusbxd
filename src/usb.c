@@ -47,9 +47,9 @@ int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 }
 
 // TODO: refactor this
-usb_sock_t *open_usb()
+struct usb_sock_t *open_usb()
 {
-	usb_sock_t *usb = calloc(1, sizeof *usb);
+	struct usb_sock_t *usb = calloc(1, sizeof *usb);
 	int status = 1;
 	status = libusb_init(&usb->context);
 	if (status < 0) {
@@ -248,7 +248,7 @@ error:
 	return NULL;
 }
 
-void close_usb(usb_sock_t *usb)
+void close_usb(struct usb_sock_t *usb)
 {
 	for (uint32_t i = 0; i < usb->num_interfaces; i++) {
 		int number = usb->interfaces[i].interface_number;
@@ -260,7 +260,7 @@ void close_usb(usb_sock_t *usb)
 	return;
 }
 
-void send_packet_usb(usb_sock_t *usb, http_packet_t *pkt)
+void send_packet_usb(struct usb_sock_t *usb, struct http_packet_t *pkt)
 {
 	// TODO: lock priority interfaces
 	// TODO: transfer in max length chunks
@@ -273,9 +273,9 @@ void send_packet_usb(usb_sock_t *usb, http_packet_t *pkt)
 	printf("sent %d bytes over status %d\n", size_sent, status);
 }
 
-http_packet_t *get_packet_usb(usb_sock_t *usb)
+struct http_packet_t *get_packet_usb(struct usb_sock_t *usb)
 {
-	http_packet_t *pkt = calloc(1, sizeof *pkt);
+	struct http_packet_t *pkt = calloc(1, sizeof *pkt);
 	if (pkt == NULL) {
 		ERR("failed to alloc space for packet in usb");
 		goto error;

@@ -11,9 +11,9 @@
 #include "tcp.h"
 
 
-tcp_sock_t *tcp_open(uint32_t port)
+struct tcp_sock_t *tcp_open(uint32_t port)
 {
-	tcp_sock_t *this = calloc(1, sizeof *this);
+	struct tcp_sock_t *this = calloc(1, sizeof *this);
 	if (this == NULL) {
 		ERR("callocing this failed");
 		goto error;
@@ -61,13 +61,13 @@ error:
 	return NULL;
 }
 
-void tcp_close(tcp_sock_t *this)
+void tcp_close(struct tcp_sock_t *this)
 {
 	close(this->sd);
 	free(this);
 }
 
-uint32_t get_port_number(tcp_sock_t *sock)
+uint32_t get_port_number(struct tcp_sock_t *sock)
 {
 	sock->info_size = sizeof sock->info;
 	int query_status = getsockname(
@@ -85,7 +85,7 @@ error:
 	return 0;
 }
 
-http_packet_t *get_packet(tcp_conn_t *tcp, http_message_t *msg)
+struct http_packet_t *get_packet(struct tcp_conn_t *tcp, struct http_message_t *msg)
 {
 	size_t capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
 	uint8_t *buf = malloc(capacity * (sizeof *buf));
@@ -111,7 +111,7 @@ http_packet_t *get_packet(tcp_conn_t *tcp, http_message_t *msg)
 	
 	// Did we receive more than a packets worth?
 	
-	http_packet_t *pkt = calloc(1, sizeof *pkt);
+	struct http_packet_t *pkt = calloc(1, sizeof *pkt);
 	if (pkt == NULL) {
 		ERR("calloc failed for packet");
 		goto error;
@@ -136,9 +136,9 @@ error:
 	return NULL;
 }
 
-tcp_conn_t *tcp_conn_accept(tcp_sock_t *sock)
+struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *sock)
 {
-	tcp_conn_t *conn = calloc(1, sizeof *conn);
+	struct tcp_conn_t *conn = calloc(1, sizeof *conn);
 	if (conn == NULL) {
 		ERR("Calloc for connection struct failed");
 		goto error;
@@ -158,7 +158,7 @@ error:
 	return NULL;
 }
 
-void tcp_conn_close(tcp_conn_t *conn)
+void tcp_conn_close(struct tcp_conn_t *conn)
 {
 	close(conn->sd);
 	free(conn);
