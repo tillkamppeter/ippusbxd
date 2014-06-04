@@ -62,6 +62,8 @@ void start_daemon(uint32_t requested_port)
 
 			struct http_packet_t *usb_pkt = get_packet_usb(usb);
 			printf("%.*s", (int)usb_pkt->filled_size, usb_pkt->buffer);
+
+			tcp_packet_send(conn, usb_pkt);
 		}
 
 

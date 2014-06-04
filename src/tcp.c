@@ -136,6 +136,11 @@ error:
 	return NULL;
 }
 
+void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
+{
+	send(conn->sd, pkt->buffer, pkt->filled_size, 0);
+}
+
 
 struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *sock)
 {
