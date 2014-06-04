@@ -38,7 +38,7 @@ void start_daemon(uint32_t requested_port)
 
 		// TODO: spawn thread
 
-		http_message_t *msg = tcp_message_get(conn);
+		http_message_t *msg = http_message_new();
 		if (msg == NULL) {
 			ERR("Generating message failed");
 			goto conn_cleanup;

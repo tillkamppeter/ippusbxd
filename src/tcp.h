@@ -35,6 +35,4 @@ uint32_t get_port_number(tcp_sock_t *);
 tcp_conn_t *tcp_conn_accept(tcp_sock_t *);
 void tcp_conn_close(tcp_conn_t *);
 
-http_message_t *tcp_message_get(tcp_conn_t *);
-
 http_packet_t *get_packet(tcp_conn_t *, http_message_t *);
