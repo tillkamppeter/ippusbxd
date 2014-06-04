@@ -47,7 +47,7 @@ int inspect_header_field(http_packet_t *pkt, int header_end, char *search_key,
 		return -1;
 	}
 
-	// Stringify buffer for atoi()
+	// Temporary stringification of buffer for atoi()
 	char original_char = pkt->buffer[num_end];
 	pkt->buffer[num_end] = '\0';
 	int val = atoi((const char *)pkt->buffer + num_pos);

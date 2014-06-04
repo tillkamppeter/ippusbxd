@@ -100,11 +100,14 @@ usb_sock_t *open_usb()
 				printer_device = candidate;
 				goto found_target_device;
 			}
+
+			// CONFTEST: Two or more interfaces are required
 			if (interface_count == 1) {
 				ERR("usb device has only one ipp interface "
 				    "in violation of standard");
 				goto error;
 			}
+
 			ERR("usb device had no ipp-usb class interfaces");
 			// TODO: if VID and PID set warn 
 			// that the device is not a ipp printer
@@ -197,6 +200,7 @@ found_target_device:
 			interfs--;
 			usb->interfaces[interfs].interface_number = interf_num;
 
+			// TODO: add conftest for endpoint count and direction
 			// Store interface's two endpoints
 			for (int end_i = 0; end_i < alt->bNumEndpoints;
 			     end_i++) {
