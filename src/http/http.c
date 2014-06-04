@@ -10,9 +10,9 @@
 #include "http.h"
 
 
-http_sock_t *open_http(uint32_t port)
+tcp_sock_t *tcp_open(uint32_t port)
 {
-	http_sock_t *this = calloc(1, sizeof *this);
+	tcp_sock_t *this = calloc(1, sizeof *this);
 	if (this == NULL) {
 		ERR("callocing this failed");
 		goto error;
@@ -60,13 +60,13 @@ error:
 	return NULL;
 }
 
-void close_http(http_sock_t *this)
+void tcp_close(tcp_sock_t *this)
 {
 	close(this->sd);
 	free(this);
 }
 
-uint32_t get_port_number(http_sock_t *sock)
+uint32_t get_port_number(tcp_sock_t *sock)
 {
 	sock->info_size = sizeof sock->info;
 	int query_status = getsockname(
@@ -248,7 +248,7 @@ void free_packet(http_packet_t *pkt)
 }
 
 
-http_message_t *get_message(http_conn_t *conn)
+http_message_t *tcp_message_get(tcp_conn_t *conn)
 {
 	http_message_t *msg = calloc(1, sizeof *msg);
 	if (msg == NULL) {
@@ -271,9 +271,9 @@ void free_message(http_message_t *msg)
 }
 
 
-http_conn_t *accept_conn(http_sock_t *sock)
+tcp_conn_t *tcp_conn_accept(tcp_sock_t *sock)
 {
-	http_conn_t *conn = calloc(1, sizeof *conn);
+	tcp_conn_t *conn = calloc(1, sizeof *conn);
 	if (conn == NULL) {
 		ERR("Calloc for connection struct failed");
 		goto error;
@@ -293,7 +293,7 @@ error:
 	return NULL;
 }
 
-void close_conn(http_conn_t *conn)
+void tcp_conn_close(tcp_conn_t *conn)
 {
 	close(conn->sd);
 	free(conn);

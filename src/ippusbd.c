@@ -16,7 +16,7 @@ void start_daemon(uint32_t requested_port)
 		goto cleanup_usb;
 
 	// Capture a socket
-	http_sock_t *sock = open_http(requested_port);
+	tcp_sock_t *sock = tcp_open(requested_port);
 	if (sock == NULL)
 		goto cleanup_http;
 
@@ -30,7 +30,7 @@ void start_daemon(uint32_t requested_port)
 	printf("%u\n", real_port);
 
 	while (1) {
-		http_conn_t *conn = accept_conn(sock);
+		tcp_conn_t *conn = tcp_conn_accept(sock);
 		if (conn == NULL) {
 			ERR("Opening connection failed");
 			goto conn_cleanup;
@@ -38,7 +38,7 @@ void start_daemon(uint32_t requested_port)
 
 		// TODO: spawn thread
 
-		http_message_t *msg = get_message(conn);
+		http_message_t *msg = tcp_message_get(conn);
 		if (msg == NULL) {
 			ERR("Generating message failed");
 			goto conn_cleanup;
@@ -67,12 +67,12 @@ void start_daemon(uint32_t requested_port)
 		if (msg != NULL)
 			free_message(msg);
 		if (conn != NULL)
-			close_conn(conn);
+			tcp_conn_close(conn);
 	}
 
 cleanup_http:
 	if (sock != NULL)
-		close_http(sock);
+		tcp_close(sock);
 cleanup_usb:
 	if (usb != NULL)
 		close_usb(usb);

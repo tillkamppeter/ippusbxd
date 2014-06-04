@@ -20,11 +20,11 @@ typedef struct {
 	int sd;
 	struct sockaddr_in6 info;
 	socklen_t info_size;
-} http_sock_t;
+} tcp_sock_t;
 
 typedef struct {
 	int sd;
-} http_conn_t;
+} tcp_conn_t;
 
 enum http_request_t {
 	HTTP_UNSET,
@@ -43,7 +43,7 @@ typedef struct {
 	uint32_t received_size;
 	uint8_t is_completed;
 
-	http_conn_t *parent_session;
+	tcp_conn_t *parent_session;
 } http_message_t;
 
 typedef struct packet {
@@ -61,14 +61,14 @@ typedef struct packet {
 	http_message_t *parent_message;
 } http_packet_t;
 
-http_sock_t *open_http(uint32_t);
-void close_http(http_sock_t *);
-uint32_t get_port_number(http_sock_t *);
+tcp_sock_t *tcp_open(uint32_t);
+void tcp_close(tcp_sock_t *);
+uint32_t get_port_number(tcp_sock_t *);
 
-http_conn_t *accept_conn(http_sock_t *);
-void close_conn(http_conn_t *);
+tcp_conn_t *tcp_conn_accept(tcp_sock_t *);
+void tcp_conn_close(tcp_conn_t *);
 
-http_message_t *get_message(http_conn_t *);
+http_message_t *tcp_message_get(tcp_conn_t *);
 void free_message(http_message_t *);
 
 http_packet_t *get_packet(http_message_t *);
