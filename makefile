@@ -1,10 +1,32 @@
-ippusbd:
-	cd exe; \
-	cmake ../src; \
-	make;
+SHELL := /bin/bash
+
+################################################################################
+BuildTargets := all clean configure redep distclean 
+.PHONY: $(BuildTargets)
+
+################################################################################
+all:
+ifeq ($(wildcard exe/Makefile),)
+	$(error make configure must be run)
+else
+	$(MAKE) -C exe
+endif
+
+
+configure:
+	rm -rf ./exe ; mkdir -p exe
+	cd exe/ ; cmake ../src
+
+redep:
+	cd exe/ ; cmake ../src ; cd ..
 
 clean:
-	cd exe; \
-	make clean
+	$(MAKE) -C exe clean
 
-full: clean ippusbd
+distclean:
+	if [ -f exe/Makefile ]; \
+		then $(MAKE) -C exe clean ;\
+	fi
+	rm -rf exe
+
+	
