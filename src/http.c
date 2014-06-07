@@ -138,6 +138,45 @@ void free_message(struct http_message_t *msg)
 	free(msg);
 }
 
+#define BUFFER_STEP (1 << 13)
+#define BUFFER_STEP_RATIO (2)
+#define BUFFER_INIT_RATIO (1)
+#define BUFFER_MAX (1 << 20)
+struct http_packet_t *packet_new(struct http_message_t *parent_msg)
+{
+	struct http_packet_t *pkt = NULL;
+	uint8_t              *buf = NULL;
+	size_t capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
+
+	buf = calloc(capacity, sizeof(*buf));
+	if (buf == NULL) {
+		ERR("failed to alloc space for packet's buffer");
+		goto error;
+	}
+
+	pkt = calloc(1, sizeof(*pkt));
+	if (pkt == NULL) {
+		ERR("failed to alloc space for packet");
+		goto error;
+	}
+
+
+	// Assemble packet
+	pkt->buffer = buf;
+	pkt->buffer_capacity = capacity;
+	pkt->filled_size = 0;
+	pkt->parent_message = parent_msg;
+	return pkt;
+
+error:
+	if (buf != NULL)
+		free(buf);
+	if (pkt != NULL)
+		free(pkt);
+	return NULL;
+
+}
+
 void free_packet(struct http_packet_t *pkt)
 {
 	free(pkt->buffer);
