@@ -12,20 +12,13 @@ struct http_message_t *http_message_new()
 	struct http_message_t *msg = calloc(1, sizeof *msg);
 	if (msg == NULL) {
 		ERR("failed to alloc space for http message");
-		goto error;
 	}
-
 	return msg;
-
-error:
-	if (msg != NULL)
-		free(msg);
-	return NULL;
 }
 
 
-int inspect_header_field(struct http_packet_t *pkt, int header_end,
-                         char *search_key, int key_size)
+int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
+                         char *search_key, size_t key_size)
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
 	if (pos == NULL)
