@@ -275,22 +275,17 @@ void send_packet_usb(struct usb_sock_t *usb, struct http_packet_t *pkt)
 
 struct http_packet_t *get_packet_usb(struct usb_sock_t *usb)
 {
-	struct http_packet_t *pkt = calloc(1, sizeof *pkt);
+	// TODO: Make usb use a message, but first messages need to do things
+	struct http_packet_t *pkt = packet_new(NULL);
 	if (pkt == NULL) {
-		ERR("failed to alloc space for packet in usb");
+		ERR("failed to create packet struct for usb connection");
 		goto error;
 	}
-	pkt->buffer = calloc(1, 10000);
-	if (pkt->buffer == NULL) {
-		ERR("failed to alloc space for packet buffer in usb");
-		goto error;
-	}
-
 	int size_sent = 0;
 	int timeout = 1000; // in milliseconds
 	int status = libusb_bulk_transfer(usb->printer,
 	                                  usb->interfaces[0].endpoint_in,
-	                                  pkt->buffer, 10000,
+	                                  pkt->buffer, pkt->buffer_capacity,
 	                                  &size_sent, timeout);
 	printf("received %d bytes with status %d\n", size_sent, status);
 	pkt->filled_size = size_sent;
