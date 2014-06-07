@@ -7,16 +7,18 @@ BuildTargets := all clean configure redep distclean
 ################################################################################
 all:
 ifeq ($(wildcard exe/Makefile),)
-	$(error make configure must be run)
+	$(MAKE) configure
+	$(MAKE) -C exe
 else
 	$(MAKE) -C exe
 endif
 
-
+################################################################################
 configure:
 	rm -rf ./exe ; mkdir -p exe
 	cd exe/ ; cmake ../src
 
+################################################################################
 redep:
 	cd exe/ ; cmake ../src ; cd ..
 
