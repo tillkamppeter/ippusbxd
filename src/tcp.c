@@ -87,17 +87,14 @@ error:
 
 struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message_t *msg)
 {
-	size_t capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
-	uint8_t *buf = malloc(capacity * (sizeof *buf));
-	if (buf == NULL) {
-		ERR("malloc failed for buf");
+	struct http_packet_t *pkt = packet_new(msg);
+	if (pkt == NULL) {
+		ERR("failed to create packet for incoming tcp message");
 		goto error;
 	}
 
-	// Any portion of a packet left from last time?
-	
 	// Read until we have atleast one packet
-	size_t size_read = recv(tcp->sd, buf, capacity, 0);
+	size_t size_read = recv(tcp->sd, pkt->buffer, pkt->buffer_capacity, 0);
 
 	// 5th case of http message end is when
 	// client closes the connection.
@@ -109,30 +106,18 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message
 		msg->is_completed = 1;
 	}
 	
-	// Did we receive more than a packets worth?
-	
-	struct http_packet_t *pkt = calloc(1, sizeof *pkt);
-	if (pkt == NULL) {
-		ERR("calloc failed for packet");
-		goto error;
-	}
-
+	// TODO: Did we receive more than a packets worth?
 
 	// Assemble packet
-	pkt->buffer = buf;
-	pkt->buffer_capacity = capacity;
 	pkt->filled_size = size_read;
-	pkt->parent_message = msg;
 
 	sniff_request_type(pkt);
 
 	return pkt;	
 	 
 error:
-	if (buf != NULL)
-		free(buf);
 	if (pkt != NULL)
-		free(pkt);
+		free_packet(pkt);
 	return NULL;
 }
 
