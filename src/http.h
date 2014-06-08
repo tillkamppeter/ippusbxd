@@ -1,6 +1,5 @@
 #pragma once
 #include <stdint.h>
-
 #include <sys/types.h>
 
 enum http_request_t {
@@ -37,7 +36,7 @@ struct http_packet_t {
 	struct http_message_t *parent_message;
 };
 
-struct http_message_t *http_message_new();
+struct http_message_t *http_message_new(void);
 void free_message(struct http_message_t *);
 
 enum http_request_t sniff_request_type(struct http_packet_t *pkt);

@@ -1,5 +1,10 @@
 SHELL := /bin/bash
 
+ifndef VERBOSE
+	CMD_VERB := @
+	NOPRINTD := --no-print-directory
+endif
+
 ################################################################################
 BuildTargets := all clean configure redep distclean 
 .PHONY: $(BuildTargets)
@@ -7,28 +12,30 @@ BuildTargets := all clean configure redep distclean
 ################################################################################
 all:
 ifeq ($(wildcard exe/Makefile),)
-	$(MAKE) configure
-	$(MAKE) -C exe
+	$(CMD_VERB) $(MAKE) $(NOPRINTD) configure
+	$(CMD_VERB) $(MAKE) $(NOPRINTD) -C exe
 else
-	$(MAKE) -C exe
+	$(CMD_VERB) $(MAKE) $(NOPRINTD) -C exe
 endif
 
 ################################################################################
 configure:
-	rm -rf ./exe ; mkdir -p exe
-	cd exe/ ; cmake ../src
+	$(CMD_VERB) rm -rf ./exe ; mkdir -p exe
+	$(CMD_VERB) cd exe/ ; cmake ../src
 
 ################################################################################
 redep:
-	cd exe/ ; cmake ../src ; cd ..
+	$(CMD_VERB) cd exe/ ; cmake ../src ; cd ..
 
+################################################################################
 clean:
-	$(MAKE) -C exe clean
+	$(CMD_VERB) $(MAKE) $(NOPRINTD) -C exe clean
 
+################################################################################
 distclean:
-	if [ -f exe/Makefile ]; \
-		then $(MAKE) -C exe clean ;\
+	$(CMD_VERB) if [ -f exe/Makefile ]; \
+		then $(MAKE) $(NOPRINTD) -C exe clean ;\
 	fi
-	rm -rf exe
+	$(CMD_VERB) rm -rf exe
 
 	
