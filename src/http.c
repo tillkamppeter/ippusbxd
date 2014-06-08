@@ -30,8 +30,8 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
 	if (pos == NULL)
 		return -1;
 
-	uint32_t num_pos = (pos - pkt->buffer) + key_size;
-	uint32_t num_end = num_pos;
+	size_t num_pos = (pos - pkt->buffer) + key_size;
+	size_t num_end = num_pos;
     
     // The start of our value should not be past our buffer
     assert(num_pos < pkt->filled_size);
