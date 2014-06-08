@@ -12,9 +12,8 @@
 struct http_message_t *http_message_new()
 {
 	struct http_message_t *msg = calloc(1, sizeof *msg);
-	if (msg == NULL) {
+	if (msg == NULL)
 		ERR("failed to alloc space for http message");
-	}
 	return msg;
 }
 
@@ -37,17 +36,16 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
 	assert(num_pos < pkt->filled_size);
 	
 	// find the first digit after the start.
-	while (num_end < pkt->filled_size && !isdigit(pkt->buffer[num_end])) {
+	while (num_end < pkt->filled_size && !isdigit(pkt->buffer[num_end]))
 		++num_end;
-	}
+
 	// find the first non-digit
-	while (num_end < pkt->filled_size && isdigit(pkt->buffer[num_end])) {
+	while (num_end < pkt->filled_size && isdigit(pkt->buffer[num_end]))
 		++num_end;
-	}
+
 	// we didn't find a first digit or we didn't find a last non-digit
-	if (num_end >= pkt->filled_size) {
+	if (num_end >= pkt->filled_size)
 		return -1;
-	}
 
 	// Temporary stringification of buffer for atoi()
 	char original_char = pkt->buffer[num_end];
