@@ -9,14 +9,14 @@
 
 #define USB_CONTEXT NULL
 
-int is_ippusb_interface(const struct libusb_interface_descriptor *interf)
+static int is_ippusb_interface(const struct libusb_interface_descriptor *interf)
 {
 	return interf->bInterfaceClass == 0x07 &&
 	       interf->bInterfaceSubClass == 0x01 &&
 	       interf->bInterfaceProtocol == 0x04;
 }
 
-int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
+static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 {
 	int ippusb_interface_count = 0;
 
@@ -180,15 +180,12 @@ found_target_device:
 			case LIBUSB_ERROR_NOT_FOUND:
 				ERR("USB Interface did not exist");
 				goto error_config;
-				break;
 			case LIBUSB_ERROR_BUSY:
 				ERR("Printer was already claimed");
 				goto error_config;
-				break;
 			case LIBUSB_ERROR_NO_DEVICE:
 				ERR("Printer was already claimed");
 				goto error_config;
-				break;
 			case 0:
 				break;
 			}
