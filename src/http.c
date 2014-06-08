@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +18,10 @@ struct http_message_t *http_message_new()
 }
 
 
+// TODO: This function doesn't work if
+// - the last digit in the value is at the end of the buffer
+// - if the value string is malformed for atoi
+// - the value is -1
 int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
                          char *search_key, size_t key_size)
 {
@@ -25,25 +30,28 @@ int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
 		return -1;
 
 	uint32_t num_pos = (pos - pkt->buffer) + key_size;
-	int32_t num_end = -1;
-	uint32_t i;
-	for (i = num_pos; i < pkt->filled_size; i++) {
-		if (!isdigit(pkt->buffer[i]))
-			continue;
-		// Find first non-digit
-		while (i < pkt->filled_size && !isdigit(pkt->buffer[i])) {
-			i++;
-		}
-		num_end = i;
-	}
-	if (num_end < 0) {
-		return -1;
-	}
+	uint32_t num_end = num_pos;
+    
+    // The start of our value should not be past our buffer
+    assert(num_pos < pkt->filled_size);
+    
+    // find the first digit after the start.
+    while (num_end < pkt->filled_size && !isdigit(pkt->buffer[num_end])) {
+        ++num_end;
+    }
+    // find the first non-digit
+    while (num_end < pkt->filled_size && isdigit(pkt->buffer[num_end])) {
+        ++num_end;
+    }
+    // we didn't find a first digit or we didn't find a last non-digit
+    if (num_end >= pkt->filled_size) {
+        return -1;
+    }
 
 	// Temporary stringification of buffer for atoi()
 	char original_char = pkt->buffer[num_end];
 	pkt->buffer[num_end] = '\0';
-	int val = atoi((const char *)pkt->buffer + num_pos);
+	int val = atoi((const char *)(pkt->buffer + num_pos));
 	pkt->buffer[num_end] = original_char;
 	return val;
 }
@@ -52,7 +60,6 @@ int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
 
 enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 {
-	enum http_request_t type;
 	/* Valid methods for determining http request
 	 * size are defined by W3 in RFC2616 section 4.4
 	 * link: http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
@@ -97,32 +104,35 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	}
 	if (header_end < 0) {
 		// We don't have the header yet
-		type = HTTP_UNSET;
-		goto do_ret;
+		pkt->parent_message->type = HTTP_UNSET;
+		return HTTP_UNSET;
 	}
 
+	// Try Transfer-Encoding
 	char xfer_encode_str[] = "Transfer-Encoding: ";
 	int size = inspect_header_field(pkt, header_end, xfer_encode_str,
 	                                                sizeof xfer_encode_str);
 	if (size >= 0) {
-		type = HTTP_CHUNKED;
 		pkt->claimed_size = size;
-		goto do_ret;
+        pkt->parent_message->type = HTTP_CHUNKED;
+        return HTTP_CHUNKED;
 	}
 
+	// Try Content-Length
 	char content_length_str[] = "Content-Length: ";
 	size = inspect_header_field(pkt, header_end, content_length_str,
 	                                              sizeof content_length_str);
 	if (size >= 0) {
-		type = HTTP_CONTENT_LENGTH;
 		pkt->claimed_size = size;
-		goto do_ret;
-	}
-
-
-do_ret:
-	pkt->parent_message->type = type;
-	return type;
+		pkt->parent_message->type = HTTP_CONTENT_LENGTH;
+        return HTTP_CONTENT_LENGTH;
+	} 
+    
+    // TODO
+    // not sure what to do in this case.
+    assert(0);
+    pkt->parent_message->type = HTTP_UNKNOWN;
+    return HTTP_UNKNOWN;
 }
 
 
