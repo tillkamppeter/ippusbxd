@@ -173,6 +173,8 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 
 void free_packet(struct http_packet_t *pkt)
 {
-	free(pkt->buffer);
-	free(pkt);
+    if (pkt) {
+        free(pkt->buffer);
+        free(pkt);
+    }
 }
