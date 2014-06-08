@@ -33,21 +33,21 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
 	size_t num_pos = (pos - pkt->buffer) + key_size;
 	size_t num_end = num_pos;
     
-    // The start of our value should not be past our buffer
-    assert(num_pos < pkt->filled_size);
-    
-    // find the first digit after the start.
-    while (num_end < pkt->filled_size && !isdigit(pkt->buffer[num_end])) {
-        ++num_end;
-    }
-    // find the first non-digit
-    while (num_end < pkt->filled_size && isdigit(pkt->buffer[num_end])) {
-        ++num_end;
-    }
-    // we didn't find a first digit or we didn't find a last non-digit
-    if (num_end >= pkt->filled_size) {
-        return -1;
-    }
+	// The start of our value should not be past our buffer
+	assert(num_pos < pkt->filled_size);
+	
+	// find the first digit after the start.
+	while (num_end < pkt->filled_size && !isdigit(pkt->buffer[num_end])) {
+		++num_end;
+	}
+	// find the first non-digit
+	while (num_end < pkt->filled_size && isdigit(pkt->buffer[num_end])) {
+		++num_end;
+	}
+	// we didn't find a first digit or we didn't find a last non-digit
+	if (num_end >= pkt->filled_size) {
+		return -1;
+	}
 
 	// Temporary stringification of buffer for atoi()
 	char original_char = pkt->buffer[num_end];
@@ -115,8 +115,8 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	                                                sizeof xfer_encode_str);
 	if (size >= 0) {
 		pkt->claimed_size = size;
-        pkt->parent_message->type = HTTP_CHUNKED;
-        return HTTP_CHUNKED;
+		pkt->parent_message->type = HTTP_CHUNKED;
+		return HTTP_CHUNKED;
 	}
 
 	// Try Content-Length
@@ -126,14 +126,13 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	if (size >= 0) {
 		pkt->claimed_size = size;
 		pkt->parent_message->type = HTTP_CONTENT_LENGTH;
-        return HTTP_CONTENT_LENGTH;
+		return HTTP_CONTENT_LENGTH;
 	} 
     
-    // TODO
-    // not sure what to do in this case.
-    assert(0);
-    pkt->parent_message->type = HTTP_UNKNOWN;
-    return HTTP_UNKNOWN;
+	// TODO: not sure what to do in this case.
+	assert(0);
+	pkt->parent_message->type = HTTP_UNKNOWN;
+	return HTTP_UNKNOWN;
 }
 
 
@@ -151,11 +150,11 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	size_t const capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
 
 	buf = calloc(capacity, sizeof(*buf));
-    pkt = calloc(1, sizeof(*pkt));
+	pkt = calloc(1, sizeof(*pkt));
 	if (buf == NULL || pkt == NULL) {
 		ERR("failed to alloc space for packet's buffer or space for packet");
-        free(pkt);
-        free(buf);
+		free(pkt);
+		free(buf);
 		return NULL;
 	}
 	
@@ -172,8 +171,8 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 
 void free_packet(struct http_packet_t *pkt)
 {
-    if (pkt) {
-        free(pkt->buffer);
-        free(pkt);
-    }
+	if (pkt) {
+		free(pkt->buffer);
+		free(pkt);
+	}
 }
