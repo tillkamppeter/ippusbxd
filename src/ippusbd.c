@@ -10,7 +10,7 @@
 #include "tcp.h"
 #include "usb.h"
 
-void start_daemon(uint32_t requested_port)
+static void start_daemon(uint32_t requested_port)
 {
 	// Capture USB device
 	struct usb_sock_t *usb = open_usb();
