@@ -23,7 +23,7 @@ struct http_message_t *http_message_new()
 // - if the value string is malformed for atoi
 // - the value is -1
 static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
-                         char *search_key, size_t key_size)
+                                char *search_key, size_t key_size)
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
 	if (pos == NULL)
