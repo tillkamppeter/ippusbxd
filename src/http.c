@@ -143,9 +143,7 @@ void free_message(struct http_message_t *msg)
 }
 
 #define BUFFER_STEP (1 << 13)
-#define BUFFER_STEP_RATIO (2)
 #define BUFFER_INIT_RATIO (1)
-#define BUFFER_MAX (1 << 20)
 struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 {
 	struct http_packet_t *pkt = NULL;
