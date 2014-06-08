@@ -55,7 +55,7 @@ struct usb_sock_t *open_usb()
 	if (status < 0) {
 		// TODO: use libusb_error_name for better status errors
 		ERR("libusb init failed with error code %d", status);
-		goto error;
+		goto error_usbinit;
 	}
 
 	libusb_device **device_list = NULL;
@@ -242,6 +242,8 @@ error:
 		}
 		free(usb);
 	}
+
+error_usbinit:
 	return NULL;
 }
 
