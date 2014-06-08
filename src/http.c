@@ -5,8 +5,9 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "logging.h"
 #include "http.h"
+#include "logging.h"
+
 
 struct http_message_t *http_message_new()
 {
@@ -22,7 +23,7 @@ struct http_message_t *http_message_new()
 // - the last digit in the value is at the end of the buffer
 // - if the value string is malformed for atoi
 // - the value is -1
-int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
+static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
                          char *search_key, size_t key_size)
 {
 	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
