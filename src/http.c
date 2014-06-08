@@ -149,40 +149,26 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 {
 	struct http_packet_t *pkt = NULL;
 	uint8_t              *buf = NULL;
-	size_t capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
+	size_t const capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
 
 	buf = calloc(capacity, sizeof(*buf));
-	if (buf == NULL) {
-		ERR("failed to alloc space for packet's buffer");
-		goto error;
+    pkt = calloc(1, sizeof(*pkt));
+	if (buf == NULL || pkt == NULL) {
+		ERR("failed to alloc space for packet's buffer or space for packet");
+        free(pkt);
+        free(buf);
+		return NULL;
 	}
-
-	pkt = calloc(1, sizeof(*pkt));
-	if (pkt == NULL) {
-		ERR("failed to alloc space for packet");
-		goto error;
-	}
-
-
+	
 	// Assemble packet
 	pkt->buffer = buf;
 	pkt->buffer_capacity = capacity;
 	pkt->filled_size = 0;
 	pkt->parent_message = parent_msg;
 
-
 	// TODO: check if parent_message has excess data from
 	// last time. If so move that into our buffer.
-
 	return pkt;
-
-error:
-	if (buf != NULL)
-		free(buf);
-	if (pkt != NULL)
-		free(pkt);
-	return NULL;
-
 }
 
 void free_packet(struct http_packet_t *pkt)
