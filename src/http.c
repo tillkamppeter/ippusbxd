@@ -127,8 +127,9 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 		return HTTP_CONTENT_LENGTH;
 	} 
     
-	// TODO: not sure what to do in this case.
-	assert(0);
+	// Note: either the packet did not contain the full header
+	// or the client intends to close the connection to signal
+	// end of message. We let the caller decide which it is.
 	pkt->parent_message->type = HTTP_UNKNOWN;
 	return HTTP_UNKNOWN;
 }
