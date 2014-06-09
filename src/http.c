@@ -105,8 +105,7 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	}
 	if (header_end < 0) {
 		// We don't have the header yet
-		pkt->parent_message->type = HTTP_UNSET;
-		return HTTP_UNSET;
+		goto do_ret;
 	}
 
 	// Try Transfer-Encoding
