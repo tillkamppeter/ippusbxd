@@ -6,7 +6,8 @@ enum http_request_t {
 	HTTP_UNSET,
 	HTTP_UNKNOWN,
 	HTTP_CHUNKED,
-	HTTP_CONTENT_LENGTH
+	HTTP_CONTENT_LENGTH,
+	HTTP_HEADER_ONLY
 };
 
 struct http_message_t {

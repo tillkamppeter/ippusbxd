@@ -102,16 +102,17 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message
 	// http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
 	// Note: this method will not be used by clients
 	// if they expect a responce.
-	if (size_read == 0) {
+	if (size_read == 0)
 		msg->is_completed = 1;
-	}
 	
 	// TODO: Did we receive more than a packets worth?
 
 	// Assemble packet
 	pkt->filled_size = size_read;
 
-	sniff_request_type(pkt);
+	enum http_request_t type = sniff_request_type(pkt);
+	if (type == HTTP_HEADER_ONLY)
+		msg->is_completed = 1;
 
 	return pkt;	
 	 

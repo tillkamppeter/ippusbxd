@@ -17,6 +17,14 @@ struct http_message_t *http_message_new()
 	return msg;
 }
 
+static int doesMatch(const char *matcher, size_t matcher_len,
+                     const char *matchy,  size_t matchy_len)
+{
+	for (int i = 0; i < matcher_len; i++)
+		if (i >= matchy_len || matcher[i] != matchy[i])
+			return 0;
+	return 1;
+}
 
 // TODO: This function doesn't work if
 // - the last digit in the value is at the end of the buffer
@@ -125,6 +133,14 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 		type = HTTP_CONTENT_LENGTH;
 		goto do_ret;
 	} 
+
+	// Get requests
+	if (doesMatch("GET", 3, pkt->buffer, pkt->filled_size)) {
+		size = pkt->filled_size;
+		type = HTTP_HEADER_ONLY;
+		goto do_ret;
+	}
+
 
 	// Note: if we got here then either the packet did not contain
 	// the full header or the client intends to close the connection
