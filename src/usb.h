@@ -22,4 +22,4 @@ void close_usb(struct usb_sock_t *);
 
 void send_packet_usb(struct usb_sock_t *, struct http_packet_t *);
 
-struct http_packet_t *get_packet_usb(struct usb_sock_t *);
+struct http_packet_t *get_packet_usb(struct usb_sock_t *, struct http_message_t *);

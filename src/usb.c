@@ -272,10 +272,10 @@ void send_packet_usb(struct usb_sock_t *usb, struct http_packet_t *pkt)
 	printf("sent %d bytes over status %d\n", size_sent, status);
 }
 
-struct http_packet_t *get_packet_usb(struct usb_sock_t *usb)
+struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message_t *msg)
 {
 	// TODO: Make usb use a message, but first messages need to do things
-	struct http_packet_t *pkt = packet_new(NULL);
+	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet struct for usb connection");
 		goto error;

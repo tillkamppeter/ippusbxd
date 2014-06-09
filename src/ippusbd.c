@@ -18,12 +18,12 @@ static void start_daemon(uint32_t requested_port)
 		goto cleanup_usb;
 
 	// Capture a socket
-	struct tcp_sock_t *sock = tcp_open(requested_port);
-	if (sock == NULL)
+	struct tcp_sock_t *tcp_socket = tcp_open(requested_port);
+	if (tcp_socket == NULL)
 		goto cleanup_http;
 
 	// TODO: print port then fork
-	uint32_t real_port = get_port_number(sock);
+	uint32_t real_port = get_port_number(tcp_socket);
 	if (requested_port != 0 && requested_port != real_port) {
 		ERR("Received port number did not match requested port number. "
 		    "The requested port number may be too high.");
@@ -32,52 +32,66 @@ static void start_daemon(uint32_t requested_port)
 	printf("%u\n", real_port);
 
 	while (1) {
-		struct tcp_conn_t *conn = tcp_conn_accept(sock);
-		if (conn == NULL) {
-			ERR("Opening connection failed");
-			goto conn_cleanup;
-		}
-
 		// TODO: spawn thread
-
-		struct http_message_t *msg = http_message_new();
-		if (msg == NULL) {
-			ERR("Generating message failed");
+		struct http_message_t *msg_client = NULL;
+		struct http_message_t *msg_server = NULL;
+		struct tcp_conn_t *tcp = tcp_conn_accept(tcp_socket);
+		if (tcp == NULL) {
+			ERR("Failed to open tcp connection");
+			goto conn_cleanup;
+		}
+		msg_client = http_message_new();
+		msg_server = http_message_new();
+		if (msg_client == NULL || msg_server == NULL) {
+			ERR("Creating messages failed");
 			goto conn_cleanup;
 		}
 
-		while (!msg->is_completed) {
-
-			struct http_packet_t *pkt = tcp_packet_get(conn, msg);
+		// Client's request
+		while (!msg_client->is_completed) {
+			struct http_packet_t *pkt = tcp_packet_get(tcp, msg_client);
 			if (pkt == NULL) {
-				ERR("Receiving packet failed");
+				if (msg_client->is_completed)
+					break;
+				ERR("Failed to receive packet from client");
 				goto conn_cleanup;
 			}
-
 			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
 			send_packet_usb(usb, pkt);
-
 			free_packet(pkt);
+		}
 
-			struct http_packet_t *usb_pkt = get_packet_usb(usb);
-			printf("%.*s", (int)usb_pkt->filled_size, usb_pkt->buffer);
+		// Server's responce
+		while (!msg_server->is_completed) {
+			struct http_packet_t *pkt = get_packet_usb(usb, msg_server);
+			if (pkt == NULL) {
+				if (msg_client->is_completed)
+					break;
+				ERR("Failed to receive packet from printer");
+				goto conn_cleanup;
+			}
+			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
-			tcp_packet_send(conn, usb_pkt);
+			tcp_packet_send(tcp, pkt);
+			free_packet(pkt);
 		}
 
 
 
 	conn_cleanup:
-		if (msg != NULL)
-			free_message(msg);
-		if (conn != NULL)
-			tcp_conn_close(conn);
+		if (msg_client != NULL)
+			free_message(msg_client);
+		if (msg_server != NULL)
+			free_message(msg_server);
+		if (tcp!= NULL)
+			tcp_conn_close(tcp);
+		// TODO: when we fork make sure to return here
 	}
 
 cleanup_http:
-	if (sock != NULL)
-		tcp_close(sock);
+	if (tcp_socket!= NULL)
+		tcp_close(tcp_socket);
 cleanup_usb:
 	if (usb != NULL)
 		close_usb(usb);
