@@ -59,6 +59,8 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
 
 enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 {
+	enum http_request_t type = HTTP_UNKNOWN;
+	int size = -1;
 	/* Valid methods for determining http request
 	 * size are defined by W3 in RFC2616 section 4.4
 	 * link: http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
@@ -109,29 +111,30 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 
 	// Try Transfer-Encoding
 	char xfer_encode_str[] = "Transfer-Encoding: ";
-	int size = inspect_header_field(pkt, header_end, xfer_encode_str,
-	                                                sizeof xfer_encode_str);
+	size = inspect_header_field(pkt, header_end, xfer_encode_str,
+	                                                sizeof(xfer_encode_str));
 	if (size >= 0) {
-		pkt->claimed_size = size;
-		pkt->parent_message->type = HTTP_CHUNKED;
-		return HTTP_CHUNKED;
+		type = HTTP_CHUNKED;
+		goto do_ret;
 	}
 
 	// Try Content-Length
 	char content_length_str[] = "Content-Length: ";
 	size = inspect_header_field(pkt, header_end, content_length_str,
-	                                              sizeof content_length_str);
+	                                              sizeof(content_length_str));
 	if (size >= 0) {
-		pkt->claimed_size = size;
-		pkt->parent_message->type = HTTP_CONTENT_LENGTH;
-		return HTTP_CONTENT_LENGTH;
+		type = HTTP_CONTENT_LENGTH;
+		goto do_ret;
 	} 
+
+	// Note: if we got here then either the packet did not contain
+	// the full header or the client intends to close the connection
+	// to signal end of message. We let the caller decide which it is.
     
-	// Note: either the packet did not contain the full header
-	// or the client intends to close the connection to signal
-	// end of message. We let the caller decide which it is.
-	pkt->parent_message->type = HTTP_UNKNOWN;
-	return HTTP_UNKNOWN;
+do_ret:
+	pkt->claimed_size = size;
+	pkt->parent_message->type = type;
+	return type;
 }
 
 
