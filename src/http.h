@@ -16,15 +16,15 @@ struct http_message_t {
 	size_t spare_size;
 	uint8_t spare_buf;
 
-	uint32_t unreceived_size;
-	uint32_t received_size;
+	size_t unreceived_size;
 	uint8_t is_completed;
 
+	// Detected from child packets
+	size_t claimed_size;
+	size_t received_size;
 };
 
 struct http_packet_t {
-	// size http headers claim for packet
-	size_t claimed_size;
 
 	// size of filled content
 	size_t filled_size;

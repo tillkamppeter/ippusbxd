@@ -77,7 +77,7 @@ struct usb_sock_t *open_usb()
 		libusb_get_device_descriptor(candidate, &desc);
 
 		// TODO: use libusb_cpu_to_le16 to fix endianess
-		if (desc.idVendor != 0x03f0 &&
+		if (desc.idVendor  != 0x03f0 &&
 		    desc.idProduct != 0xc511)
 			continue;
 		// TODO: filter on serial number
@@ -282,13 +282,31 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 	}
 	int size_sent = 0;
 	int timeout = 1000; // in milliseconds
-	int status = libusb_bulk_transfer(usb->printer,
-	                                  usb->interfaces[0].endpoint_in,
-	                                  pkt->buffer, pkt->buffer_capacity,
-	                                  &size_sent, timeout);
-	printf("received %d bytes with status %d\n", size_sent, status);
-	pkt->filled_size = size_sent;
+	int status = 0;
+	while (size_sent == 0) {
+		status = libusb_bulk_transfer(usb->printer,
+		                              usb->interfaces[0].endpoint_in,
+		                              pkt->buffer + pkt->filled_size,
+		                              pkt->buffer_capacity - pkt->filled_size,
+		                              &size_sent, timeout);
+		if (size_sent == 0)
+			continue;
 
+		// TODO: use has header instead
+		pkt->filled_size += size_sent;
+	}
+	msg->received_size += pkt->filled_size;
+
+	enum http_request_t type = (msg->type != HTTP_UNSET) ?
+	                            msg->type :
+	                            sniff_request_type(pkt);
+	if (((HTTP_CONTENT_LENGTH == type ||
+	      HTTP_CHUNKED == type) && msg->received_size >= msg->claimed_size)
+	    || HTTP_HEADER_ONLY == type)
+			msg->is_completed = 1;
+
+	printf("claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
+	printf("received %ld bytes with status %d\n", pkt->filled_size, status);
 	return pkt;
 
 error:

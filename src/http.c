@@ -14,52 +14,47 @@ struct http_message_t *http_message_new()
 	struct http_message_t *msg = calloc(1, sizeof *msg);
 	if (msg == NULL)
 		ERR("failed to alloc space for http message");
+	msg->type = HTTP_UNSET;
 	return msg;
 }
 
 static int doesMatch(const char *matcher, size_t matcher_len,
-                     const char *matchy,  size_t matchy_len)
+                     const uint8_t *matchy,  size_t matchy_len)
 {
-	for (int i = 0; i < matcher_len; i++)
+	for (size_t i = 0; i < matcher_len; i++)
 		if (i >= matchy_len || matcher[i] != matchy[i])
 			return 0;
 	return 1;
 }
 
-// TODO: This function doesn't work if
-// - the last digit in the value is at the end of the buffer
-// - if the value string is malformed for atoi
-// - the value is -1
-static int inspect_header_field(struct http_packet_t *pkt, size_t header_end,
-                                char *search_key, size_t key_size)
+static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
+                                char *key, size_t key_size)
 {
-	uint8_t *pos = memmem(pkt->buffer, header_end, search_key, key_size);
+	// Find key
+	uint8_t *pos = memmem(pkt->buffer, header_size, key, key_size);
 	if (pos == NULL)
 		return -1;
 
-	size_t num_pos = (pos - pkt->buffer) + key_size;
-	size_t num_end = num_pos;
-    
-	// The start of our value should not be past our buffer
-	assert(num_pos < pkt->filled_size);
-	
-	// find the first digit after the start.
-	while (num_end < pkt->filled_size && !isdigit(pkt->buffer[num_end]))
-		++num_end;
+	// Find first digit
+	size_t number_pos = (pos - pkt->buffer) + key_size;
+	while (number_pos < pkt->filled_size && !isdigit(pkt->buffer[number_pos]))
+		++number_pos;
 
-	// find the first non-digit
-	while (num_end < pkt->filled_size && isdigit(pkt->buffer[num_end]))
-		++num_end;
+	// Find next non-digit
+	size_t number_end = number_pos;
+	while (number_end < pkt->filled_size && isdigit(pkt->buffer[number_end]))
+		++number_end;
 
-	// we didn't find a first digit or we didn't find a last non-digit
-	if (num_end >= pkt->filled_size)
+	// Failed to find next non-digit
+	// number may have been at end of buffer
+	if (number_end >= pkt->filled_size)
 		return -1;
 
 	// Temporary stringification of buffer for atoi()
-	char original_char = pkt->buffer[num_end];
-	pkt->buffer[num_end] = '\0';
-	int val = atoi((const char *)(pkt->buffer + num_pos));
-	pkt->buffer[num_end] = original_char;
+	char original_char = pkt->buffer[number_end];
+	pkt->buffer[number_end] = '\0';
+	int val = atoi((const char *)(pkt->buffer + number_pos));
+	pkt->buffer[number_end] = original_char;
 	return val;
 }
 
@@ -94,7 +89,7 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	 * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
 	 */
 	// Find header
-	int header_end = -1;
+	long long header_size = -1;
 	uint32_t i;
 	for (i = 0; i < pkt->filled_size; i++) {
 		// two \r\n pairs
@@ -102,34 +97,40 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 		    '\r' == pkt->buffer[i] &&
 		    '\n' == pkt->buffer[i + 1] &&
 		    '\r' == pkt->buffer[i + 2] &&
-		    '\n' == pkt->buffer[i + 3])
-				header_end = i;
+		    '\n' == pkt->buffer[i + 3]) {
+				header_size = i + 4;
+				break;
+		}
 
 		// two \n pairs
 		if ((i + 1) < pkt->filled_size &&
 		    '\n' == pkt->buffer[i] &&
-		    '\n' == pkt->buffer[i + 1])
-				header_end = i;
+		    '\n' == pkt->buffer[i + 1]) {
+				header_size = i + 2;
+				break;
+		}
 	}
-	if (header_end < 0) {
+	if (header_size < 0) {
 		// We don't have the header yet
 		goto do_ret;
 	}
 
 	// Try Transfer-Encoding
 	char xfer_encode_str[] = "Transfer-Encoding: ";
-	size = inspect_header_field(pkt, header_end, xfer_encode_str,
-	                                                sizeof(xfer_encode_str));
+	size = inspect_header_field(pkt, header_size, xfer_encode_str,
+	                            sizeof(xfer_encode_str) - 1);
 	if (size >= 0) {
+		size += header_size;
 		type = HTTP_CHUNKED;
 		goto do_ret;
 	}
 
 	// Try Content-Length
 	char content_length_str[] = "Content-Length: ";
-	size = inspect_header_field(pkt, header_end, content_length_str,
-	                                              sizeof(content_length_str));
+	size = inspect_header_field(pkt, header_size, content_length_str,
+	                            sizeof(content_length_str) - 1);
 	if (size >= 0) {
+		size += header_size;
 		type = HTTP_CONTENT_LENGTH;
 		goto do_ret;
 	} 
@@ -147,7 +148,7 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	// to signal end of message. We let the caller decide which it is.
     
 do_ret:
-	pkt->claimed_size = size;
+	pkt->parent_message->claimed_size = size;
 	pkt->parent_message->type = type;
 	return type;
 }
