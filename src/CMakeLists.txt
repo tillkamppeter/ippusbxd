@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 2.6)
 project(ippusbd)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra -pedantic")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra -pedantic -pedantic-errors")
+
+
+# Compiler specific configuration
+if (${CMAKE_C_COMPILER_ID} STREQUAL "GNU") 
+    # Nothing
+elseif( ${CMAKE_C_COMPILER_ID} STREQUAL "Clang") 
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Weverything -Wno-documentation -Wno-padded")
+    # Warnings below this should be enabled. They are currently off because they
+    # are REALLY noisy (bad thing)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
+endif()
 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
