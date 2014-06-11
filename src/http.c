@@ -115,12 +115,15 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 		goto do_ret;
 	}
 
-	// Try Transfer-Encoding
-	char xfer_encode_str[] = "Transfer-Encoding: ";
-	size = inspect_header_field(pkt, header_size, xfer_encode_str,
-	                            sizeof(xfer_encode_str) - 1);
-	if (size >= 0) {
-		size += header_size;
+	// Try Transfer-Encoding Chunked
+	char xfer_encode_str[] = "Transfer-Encoding: chunked";
+	int xfer_encode_str_size = sizeof(xfer_encode_str) - 1;
+	uint8_t *xfer_encode_pos = memmem(pkt->buffer, header_size,
+	                                  xfer_encode_str,
+	                                  xfer_encode_str_size);
+	if (xfer_encode_pos != NULL) {
+		ERR("found chunked");
+		size = 0;
 		type = HTTP_CHUNKED;
 		goto do_ret;
 	}
