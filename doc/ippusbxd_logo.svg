@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="277.35043"
+   height="114.59375"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="ippusbd_logo.svg">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="4"
+     inkscape:cx="122.35629"
+     inkscape:cy="69.216388"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="10"
+     fit-margin-left="10"
+     fit-margin-right="10"
+     fit-margin-bottom="10"
+     inkscape:window-width="1918"
+     inkscape:window-height="1060"
+     inkscape:window-x="1680"
+     inkscape:window-y="18"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="レイヤー 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-46.832052,-336.06014)">
+    <path
+       style="fill:#333333;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       d="m 84.144552,346.06014 -27.3125,47.3125 27.3125,47.28125 15.687504,0 -0.15625,-16.46875 -6.031254,0 -17.78125,-30.8125 17.78125,-30.84375 35.593758,0 5.78125,10 14.28125,-8.1875 -10.5625,-18.28125 z"
+       id="path3018"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="ccccccccccccc" />
+    <text
+       sodipodi:linespacing="125%"
+       id="text3006"
+       y="440.03055"
+       x="210.28975"
+       style="font-size:18.57640076px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#333333;fill-opacity:1;stroke:none;font-family:Raleway;-inkscape-font-specification:Raleway"
+       xml:space="preserve"><tspan
+         y="440.03055"
+         x="210.28975"
+         id="tspan3008"
+         sodipodi:role="line">X-Platform IPP over USB</tspan></text>
+    <text
+       sodipodi:linespacing="125%"
+       id="text3010"
+       y="409.4451"
+       x="204.67393"
+       style="font-size:53.00712967px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#333333;fill-opacity:1;stroke:none;font-family:Raleway;-inkscape-font-specification:Raleway Bold"
+       xml:space="preserve"><tspan
+         dx="0 -2.0613878 -2.3264236 0.7960487 -1.6996723 -2.1644573 -4.0878172 -3.5176737"
+         y="409.4451"
+         x="204.67393"
+         id="tspan3012"
+         sodipodi:role="line">ippusbxd</tspan></text>
+    <path
+       transform="matrix(-1.1632081,-0.6715785,0.6715785,-1.1632081,-303.36423,2628.6691)"
+       d="m 1.0606613,680.45491 -35.2114173,-20.32932 -10e-7,-40.65865 35.2114162,-20.32932 35.2114168,20.32932 1e-6,40.65864 z"
+       inkscape:randomized="0"
+       inkscape:rounded="0"
+       inkscape:flatsided="true"
+       sodipodi:arg2="2.0943951"
+       sodipodi:arg1="1.5707963"
+       sodipodi:r2="35.211414"
+       sodipodi:r1="40.658642"
+       sodipodi:cy="639.79626"
+       sodipodi:cx="1.0606602"
+       sodipodi:sides="6"
+       id="path3025"
+       style="fill:#333333;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       sodipodi:type="star" />
+    <path
+       sodipodi:type="star"
+       style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       id="path3027"
+       sodipodi:sides="6"
+       sodipodi:cx="1.0606602"
+       sodipodi:cy="639.79626"
+       sodipodi:r1="40.658642"
+       sodipodi:r2="35.211414"
+       sodipodi:arg1="1.5707963"
+       sodipodi:arg2="2.0943951"
+       inkscape:flatsided="true"
+       inkscape:rounded="0"
+       inkscape:randomized="0"
+       d="m 1.0606613,680.45491 -35.2114173,-20.32932 -10e-7,-40.65865 35.2114162,-20.32932 35.2114168,20.32932 1e-6,40.65864 z"
+       transform="matrix(-0.75808774,-0.43768216,0.43768216,-0.75808774,-154.14794,2369.2266)" />
+    <path
+       sodipodi:nodetypes="cccccc"
+       inkscape:connector-curvature="0"
+       id="path3029"
+       d="m 157.96187,1967.804 -45.26817,-23.0078 1.29932,-69.7243 27.2559,-22.1411 78.76817,0.1416 z"
+       style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+    <text
+       xml:space="preserve"
+       style="font-size:18.57640076px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#333333;fill-opacity:1;stroke:none;font-family:Raleway;-inkscape-font-specification:Raleway"
+       x="221.51053"
+       y="1930.411"
+       id="text3031"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3033"
+         x="221.51053"
+         y="1930.411">X-Platform IPP over USB</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:53.00712967px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#333333;fill-opacity:1;stroke:none;font-family:Raleway;-inkscape-font-specification:Raleway Bold"
+       x="215.89471"
+       y="1899.8256"
+       id="text3035"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3037"
+         x="215.89471"
+         y="1899.8256"
+         dx="0 -2.0613878 -2.3264236 0.7960487 -1.6996723 -2.1644573 -4.0878172 -3.5176737">ippusbxd</tspan></text>
+    <rect
+       style="fill:#333333;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       id="rect3039"
+       width="101.50781"
+       height="16.47015"
+       x="136.6447"
+       y="1836.4457" />
+  </g>
+</svg>
