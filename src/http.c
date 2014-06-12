@@ -58,7 +58,32 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 	return val;
 }
 
+size_t packet_find_chunked_size(struct http_packet_t *pkt)
+{
+	// Find end of size string
+	uint8_t *size_end = NULL;
+	for (size_t i = 0; i < pkt->filled_size; i++) {
+		uint8_t *buf = pkt->buffer;
+		if (buf[i] == ';'  || // chunked extension
+		    buf[i] == '\r' || // CR
+		    buf[i] == '\n') { // Lf
+			size_end = buf + i;
+			break;
+		}
+	}
 
+	if (size_end == NULL) {
+		return -1;
+	}
+
+	// Temporary stringification for strtol()
+	uint8_t original_char = *size_end;
+	*size_end = '\0';
+	size_t size = strtol((char *)pkt->buffer, NULL, 16);
+	*size_end = original_char;
+
+	return size + (size_end - pkt->buffer);
+}
 
 enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 {
@@ -112,6 +137,8 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	}
 	if (header_size < 0) {
 		// We don't have the header yet
+		// TODO: make UNSET mean no header
+		// and UNKNOWN mean no known size
 		goto do_ret;
 	}
 
@@ -122,7 +149,6 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	                                  xfer_encode_str,
 	                                  xfer_encode_str_size);
 	if (xfer_encode_pos != NULL) {
-		ERR("found chunked");
 		size = 0;
 		type = HTTP_CHUNKED;
 		goto do_ret;
@@ -154,6 +180,58 @@ do_ret:
 	pkt->parent_message->claimed_size = size;
 	pkt->parent_message->type = type;
 	return type;
+}
+
+int packet_at_capacity(struct http_packet_t *pkt)
+{
+	// NOTE: max_usb_packet_size = 512;
+	return (pkt->buffer_capacity - 512)<= pkt->filled_size;
+}
+
+int packet_pending_bytes(struct http_packet_t *pkt)
+{
+	// Determine message's size delimitation method
+	struct http_message_t *msg = pkt->parent_message;
+	ERR("existing = %d", msg->type);
+	if (HTTP_UNSET == msg->type ||
+	    HTTP_UNKNOWN == msg->type) {
+		msg->type = sniff_request_type(pkt);
+		// TODO: resize buffer if header is too large
+		if (HTTP_CHUNKED == msg->type) {
+			// TODO: First detection of chunked
+			// should only include header in packet
+			// TODO: move extra data into msg's
+			// extra data buffer
+			return 0;
+		}
+	}
+
+
+	// Map types to size gueses
+	if (HTTP_CHUNKED == msg->type) {
+		// TODO: return either header size
+		// or remaining data in chunk
+		return (int)packet_find_chunked_size(pkt);
+	}
+	if (HTTP_HEADER_ONLY == msg->type) {
+		// Note: we only know it is header only
+		// if the buffer contains the full header
+		// thus we know no more data is needed.
+		ERR("headeronly");
+		return 0;
+	}
+	if (HTTP_CONTENT_LENGTH == msg->type) {
+		// TODO: if we got extra data then push
+		// extra into message's buffer
+		int msg_remaining = msg->claimed_size - msg->received_size;
+		int pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
+		if (msg_remaining < pkt_remaining)
+			return msg_remaining;
+		return pkt_remaining;
+	}
+
+	// HTTP_UNKOWN or UNSET
+	return -1;
 }
 
 

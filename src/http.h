@@ -43,3 +43,6 @@ void free_message(struct http_message_t *);
 enum http_request_t sniff_request_type(struct http_packet_t *pkt);
 struct http_packet_t *packet_new(struct http_message_t *);
 void free_packet(struct http_packet_t *);
+
+int packet_pending_bytes(struct http_packet_t *);
+int packet_at_capacity(struct http_packet_t *);

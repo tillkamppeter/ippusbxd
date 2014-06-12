@@ -269,7 +269,7 @@ void send_packet_usb(struct usb_sock_t *usb, struct http_packet_t *pkt)
 	                                  usb->interfaces[0].endpoint_out,
 	                                  pkt->buffer, pkt->filled_size,
 	                                  &size_sent, timeout);
-	printf("sent %d bytes over status %d\n", size_sent, status);
+	printf("Note: sent %d bytes with status %d\n", size_sent, status);
 }
 
 struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message_t *msg)
@@ -280,33 +280,60 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 		ERR("failed to create packet struct for usb connection");
 		goto error;
 	}
-	int size_sent = 0;
-	int timeout = 1000; // in milliseconds
-	int status = 0;
-	while (size_sent == 0) {
-		status = libusb_bulk_transfer(usb->printer,
-		                              usb->interfaces[0].endpoint_in,
-		                              pkt->buffer + pkt->filled_size,
-		                              pkt->buffer_capacity - pkt->filled_size,
-		                              &size_sent, timeout);
-		if (size_sent == 0)
-			continue;
 
-		// TODO: use has header instead
+	while (!packet_at_capacity(pkt)) {
+
+		// Clasify message and desired packet size
+		int bytes_to_read = 0;
+		int pending_bytes = packet_pending_bytes(pkt);
+		if (pending_bytes == 0) {
+			goto check_msg;
+		} else if (pending_bytes < 0) {
+			bytes_to_read = pkt->buffer_capacity - pkt->filled_size;
+
+			if (packet_at_capacity(pkt))
+				goto check_msg;
+		} else {
+			bytes_to_read = pending_bytes;
+		}
+
+
+		// File packet
+		int size_sent = 0;
+		int status = 0;
+		while (size_sent == 0) {
+			// TODO: yield instead of spinlock
+			const int timeout = 1000; // in milliseconds
+			status = libusb_bulk_transfer(
+			                      usb->printer,
+			                      usb->interfaces[0].endpoint_in,
+			                      pkt->buffer + pkt->filled_size,
+			                      bytes_to_read,
+			                      &size_sent, timeout);
+			//printf("to read: %d\n", bytes_to_read);
+			if (status != 0)
+				ERR("bulk xfer failed with error code %d", status);
+		}
+
 		pkt->filled_size += size_sent;
+		msg->received_size += size_sent;
+check_msg:
+		printf("received %ld bytes with status %d\n", pkt->filled_size, status);
+		printf("claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
+
+		// TODO: move this into packet_pending_bytes()
+		if (((HTTP_CONTENT_LENGTH == msg->type ||
+		      HTTP_CHUNKED == msg->type) && msg->received_size >= msg->claimed_size)
+		    || HTTP_HEADER_ONLY == msg->type) {
+				msg->is_completed = 1;
+				break;
+		}
+	
+		// TODO: remove this after above refactoring
+		if (bytes_to_read <= 0)
+			break;
 	}
-	msg->received_size += pkt->filled_size;
 
-	enum http_request_t type = (msg->type != HTTP_UNSET) ?
-	                            msg->type :
-	                            sniff_request_type(pkt);
-	if (((HTTP_CONTENT_LENGTH == type ||
-	      HTTP_CHUNKED == type) && msg->received_size >= msg->claimed_size)
-	    || HTTP_HEADER_ONLY == type)
-			msg->is_completed = 1;
-
-	printf("claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
-	printf("received %ld bytes with status %d\n", pkt->filled_size, status);
 	return pkt;
 
 error:
