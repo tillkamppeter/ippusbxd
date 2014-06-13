@@ -87,6 +87,9 @@ static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
 {
 	struct http_message_t *msg = pkt->parent_message;
 
+	// Note: Mesaages's spare buffer should be empty!
+	assert(msg->spare_filled == 0);
+
 	// Note: Packets cannot have more spare data than they have data.
 	assert(pkt->filled_size >= spare_size);
 
@@ -106,6 +109,7 @@ static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
 	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
 
 	msg->spare_filled = spare_size;
+	pkt->filled_size -= spare_size;
 }
 
 // Warning: this functon should be reviewed indepth.
