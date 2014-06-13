@@ -82,6 +82,11 @@ size_t packet_find_chunked_size(struct http_packet_t *pkt)
 	size_t size = strtol((char *)pkt->buffer, NULL, 16);
 	*size_end = original_char;
 
+	// Chunked transport sends a zero size
+	// chunk to mark end of message
+	if (size == 0)
+		pkt->parent_message->is_completed = 1;
+
 	return size + (size_end - pkt->buffer);
 }
 

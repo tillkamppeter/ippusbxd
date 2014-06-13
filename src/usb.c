@@ -314,6 +314,8 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 			if (status != 0)
 				ERR("bulk xfer failed with error code %d", status);
 		}
+		printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
+		       pkt->buffer + pkt->filled_size);
 
 		pkt->filled_size += size_sent;
 		msg->received_size += size_sent;
@@ -322,15 +324,15 @@ check_msg:
 		printf("claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
 
 		// TODO: move this into packet_pending_bytes()
-		if (((HTTP_CONTENT_LENGTH == msg->type ||
-		      HTTP_CHUNKED == msg->type) && msg->received_size >= msg->claimed_size)
+		if ((HTTP_CONTENT_LENGTH == msg->type &&
+		     msg->received_size >= msg->claimed_size)
 		    || HTTP_HEADER_ONLY == msg->type) {
 				msg->is_completed = 1;
 				break;
 		}
 	
 		// TODO: remove this after above refactoring
-		if (bytes_to_read <= 0)
+		if (bytes_to_read <= 0 || msg->is_completed)
 			break;
 	}
 
