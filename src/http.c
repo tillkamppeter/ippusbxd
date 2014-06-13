@@ -4,19 +4,42 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "http.h"
 #include "logging.h"
 
+#define BUFFER_STEP (1 << 13)
+#define BUFFER_INIT_RATIO (1)
 
 struct http_message_t *http_message_new()
 {
 	struct http_message_t *msg = calloc(1, sizeof *msg);
-	if (msg == NULL)
+	if (msg == NULL) {
 		ERR("failed to alloc space for http message");
-	msg->type = HTTP_UNSET;
+		return NULL;
+	}
+
+
+	size_t capacity = BUFFER_STEP;
+	msg->spare_buffer = calloc(capacity, *(msg->spare_buffer));
+	if (msg->spare_buffer == NULL) {
+		ERR("failed to alloc buffer for http message");
+		free(msg);
+		return NULL;
+	}
+
+	msg->spare_capacity = capacity;
+
 	return msg;
 }
+
+void free_message(struct http_message_t *msg)
+{
+	free(msg->spare_buffer);
+	free(msg);
+}
+
 
 static int doesMatch(const char *matcher, size_t matcher_len,
                      const uint8_t *matchy,  size_t matchy_len)
@@ -56,6 +79,50 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 	int val = atoi((const char *)(pkt->buffer + number_pos));
 	pkt->buffer[number_end] = original_char;
 	return val;
+}
+
+// Warning: this functon should be reviewed indepth.
+// Copying memory is a fantastic place to find exploits
+static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
+{
+	struct http_message_t *msg = pkt->parent_message;
+
+	// Note: Packets cannot have more spare data than they have data.
+	assert(pkt->filled_size >= spare_size);
+
+	size_t non_spare = pkt->filled_size - spare_size;
+
+	// Note: Packets cannot have more
+	// than BUFFER_STEP of spare data
+	assert(spare_size <= BUFFER_STEP);
+
+	// Note: New packets will have emptied the msg's buffer
+	// we thus know there will room for our spare
+	assert(spare_size <= (msg->spare_capacity - msg->spare_filled));
+
+	// Note: We better not copy past packet's buffer
+	assert(pkt->buffer_capacity >= (non_spare + spare_size));
+
+	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
+
+	msg->spare_filled = spare_size;
+}
+
+// Warning: this functon should be reviewed indepth.
+// Copying memory is a fantastic place to find exploits
+static void packet_load_spare(struct http_packet_t *pkt)
+{
+	struct http_message_t *msg = pkt->parent_message;
+
+	size_t spare_avail = msg->spare_filled;
+	size_t buffer_open = pkt->buffer_capacity - pkt->filled_size;
+	assert(spare_avail <= buffer_open);
+
+	memcpy(pkt->buffer + pkt->filled_size,
+	       msg->spare_buffer, spare_avail);
+
+	msg->spare_filled = 0;
+	pkt->filled_size += spare_avail;
 }
 
 size_t packet_find_chunked_size(struct http_packet_t *pkt)
@@ -253,19 +320,13 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 	// TODO: move extra data into msg's buffer
 }
 
-
-void free_message(struct http_message_t *msg)
-{
-	free(msg);
-}
-
-#define BUFFER_STEP (1 << 13)
-#define BUFFER_INIT_RATIO (1)
 struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 {
 	struct http_packet_t *pkt = NULL;
 	uint8_t              *buf = NULL;
 	size_t const capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
+
+	assert(parent_msg != NULL);
 
 	buf = calloc(capacity, sizeof(*buf));
 	pkt = calloc(1, sizeof(*pkt));

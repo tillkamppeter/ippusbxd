@@ -242,7 +242,6 @@ error:
 		}
 		free(usb);
 	}
-
 error_usbinit:
 	return NULL;
 }

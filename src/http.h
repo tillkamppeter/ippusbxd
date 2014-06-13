@@ -13,8 +13,9 @@ enum http_request_t {
 struct http_message_t {
 	enum http_request_t type;
 
-	size_t spare_size;
-	uint8_t spare_buf;
+	size_t spare_filled;
+	size_t spare_capacity;
+	uint8_t *spare_buffer;
 
 	size_t unreceived_size;
 	uint8_t is_completed;
