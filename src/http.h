@@ -46,3 +46,4 @@ void free_packet(struct http_packet_t *);
 
 int packet_pending_bytes(struct http_packet_t *);
 int packet_at_capacity(struct http_packet_t *);
+void packet_mark_received(struct http_packet_t *, size_t);

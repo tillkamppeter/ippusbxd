@@ -197,7 +197,6 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 {
 	// Determine message's size delimitation method
 	struct http_message_t *msg = pkt->parent_message;
-	ERR("existing = %d", msg->type);
 	if (HTTP_UNSET == msg->type ||
 	    HTTP_UNKNOWN == msg->type) {
 		msg->type = sniff_request_type(pkt);
@@ -237,6 +236,21 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 
 	// HTTP_UNKOWN or UNSET
 	return -1;
+}
+
+void packet_mark_received(struct http_packet_t *pkt, size_t received)
+{
+	struct http_message_t *msg = pkt->parent_message;
+	pkt->filled_size += received;
+	msg->received_size += received;
+
+	if ((HTTP_CONTENT_LENGTH == msg->type &&
+	     msg->received_size >= msg->claimed_size)
+	    || HTTP_HEADER_ONLY == msg->type) {
+			msg->is_completed = 1;
+	}
+
+	// TODO: move extra data into msg's buffer
 }
 
 

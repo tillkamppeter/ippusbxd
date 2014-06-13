@@ -281,18 +281,18 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 		goto error;
 	}
 
-	while (!packet_at_capacity(pkt)) {
+	while (!(packet_at_capacity(pkt) || msg->is_completed)) {
 
 		// Clasify message and desired packet size
 		int bytes_to_read = 0;
 		int pending_bytes = packet_pending_bytes(pkt);
 		if (pending_bytes == 0) {
-			goto check_msg;
+			break;
 		} else if (pending_bytes < 0) {
 			bytes_to_read = pkt->buffer_capacity - pkt->filled_size;
 
 			if (packet_at_capacity(pkt))
-				goto check_msg;
+				break;
 		} else {
 			bytes_to_read = pending_bytes;
 		}
@@ -314,26 +314,12 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 			if (status != 0)
 				ERR("bulk xfer failed with error code %d", status);
 		}
+
+		printf("==-- Claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
 		printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
 		       pkt->buffer + pkt->filled_size);
 
-		pkt->filled_size += size_sent;
-		msg->received_size += size_sent;
-check_msg:
-		printf("received %ld bytes with status %d\n", pkt->filled_size, status);
-		printf("claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
-
-		// TODO: move this into packet_pending_bytes()
-		if ((HTTP_CONTENT_LENGTH == msg->type &&
-		     msg->received_size >= msg->claimed_size)
-		    || HTTP_HEADER_ONLY == msg->type) {
-				msg->is_completed = 1;
-				break;
-		}
-	
-		// TODO: remove this after above refactoring
-		if (bytes_to_read <= 0 || msg->is_completed)
-			break;
+		packet_mark_received(pkt, size_sent);
 	}
 
 	return pkt;
