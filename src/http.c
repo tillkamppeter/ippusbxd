@@ -351,8 +351,9 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	pkt->filled_size = 0;
 	pkt->parent_message = parent_msg;
 
-	// TODO: check if parent_message has excess data from
-	// last time. If so move that into our buffer.
+	// Claim old spare data
+	packet_load_spare(pkt);
+
 	return pkt;
 }
 
