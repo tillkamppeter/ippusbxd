@@ -14,7 +14,7 @@
 
 struct http_message_t *http_message_new()
 {
-	struct http_message_t *msg = calloc(1, sizeof *msg);
+	struct http_message_t *msg = calloc(1, sizeof(*msg));
 	if (msg == NULL) {
 		ERR("failed to alloc space for http message");
 		return NULL;
@@ -22,7 +22,7 @@ struct http_message_t *http_message_new()
 
 
 	size_t capacity = BUFFER_STEP;
-	msg->spare_buffer = calloc(capacity, *(msg->spare_buffer));
+	msg->spare_buffer = calloc(capacity, sizeof(*(msg->spare_buffer)));
 	if (msg->spare_buffer == NULL) {
 		ERR("failed to alloc buffer for http message");
 		free(msg);
@@ -157,6 +157,30 @@ size_t packet_find_chunked_size(struct http_packet_t *pkt)
 	return size + (size_end - pkt->buffer);
 }
 
+static long long packet_get_header_size(struct http_packet_t *pkt)
+{
+	// Find header
+	for (size_t i = 0; i < pkt->filled_size; i++) {
+		// two \r\n pairs
+		if ((i + 3) < pkt->filled_size &&
+		    '\r' == pkt->buffer[i] &&
+		    '\n' == pkt->buffer[i + 1] &&
+		    '\r' == pkt->buffer[i + 2] &&
+		    '\n' == pkt->buffer[i + 3]) {
+				return i + 4;
+		}
+
+		// two \n pairs
+		if ((i + 1) < pkt->filled_size &&
+		    '\n' == pkt->buffer[i] &&
+		    '\n' == pkt->buffer[i + 1]) {
+				return i + 2;
+		}
+	}
+
+	return -1;
+}
+
 enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 {
 	enum http_request_t type = HTTP_UNKNOWN;
@@ -185,28 +209,8 @@ enum http_request_t sniff_request_type(struct http_packet_t *pkt)
 	 * complience requires the message to use only \r\n
 	 * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
 	 */
-	// Find header
-	long long header_size = -1;
-	uint32_t i;
-	for (i = 0; i < pkt->filled_size; i++) {
-		// two \r\n pairs
-		if ((i + 3) < pkt->filled_size &&
-		    '\r' == pkt->buffer[i] &&
-		    '\n' == pkt->buffer[i + 1] &&
-		    '\r' == pkt->buffer[i + 2] &&
-		    '\n' == pkt->buffer[i + 3]) {
-				header_size = i + 4;
-				break;
-		}
 
-		// two \n pairs
-		if ((i + 1) < pkt->filled_size &&
-		    '\n' == pkt->buffer[i] &&
-		    '\n' == pkt->buffer[i + 1]) {
-				header_size = i + 2;
-				break;
-		}
-	}
+	long long header_size = packet_get_header_size(pkt);
 	if (header_size < 0) {
 		// We don't have the header yet
 		// TODO: make UNSET mean no header

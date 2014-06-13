@@ -29,6 +29,7 @@ struct http_packet_t {
 
 	// size of filled content
 	size_t filled_size;
+	size_t expected_size;
 
 	// max capacity of buffer
 	// can be exapanded
