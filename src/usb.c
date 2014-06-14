@@ -314,12 +314,17 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 				ERR("bulk xfer failed with error code %d", status);
 		}
 
-		printf("==-- Claimed %ld filled %ld\n", msg->claimed_size, msg->received_size);
-		printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
-		       pkt->buffer + pkt->filled_size);
-
 		packet_mark_received(pkt, size_sent);
+
+		printf("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
+		       msg->type, msg->received_size, msg->claimed_size,
+		       pkt->filled_size, pkt->expected_size);
+		printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
+		       pkt->buffer + pkt->filled_size - size_sent);
+
 	}
+
+	printf("==-- End of packet --=\n");
 
 	return pkt;
 

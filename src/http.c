@@ -9,7 +9,7 @@
 #include "http.h"
 #include "logging.h"
 
-#define BUFFER_STEP (1 << 13)
+#define BUFFER_STEP (1 << 18)
 #define BUFFER_INIT_RATIO (1)
 
 struct http_message_t *http_message_new()
@@ -129,8 +129,11 @@ static void packet_load_spare(struct http_packet_t *pkt)
 	pkt->filled_size += spare_avail;
 }
 
-size_t packet_find_chunked_size(struct http_packet_t *pkt)
+static long long packet_find_chunked_size(struct http_packet_t *pkt)
 {
+	// TODO: scan to the end of the chunk's
+	// trailer and extensions
+
 	// Find end of size string
 	uint8_t *size_end = NULL;
 	for (size_t i = 0; i < pkt->filled_size; i++) {
@@ -155,8 +158,10 @@ size_t packet_find_chunked_size(struct http_packet_t *pkt)
 
 	// Chunked transport sends a zero size
 	// chunk to mark end of message
-	if (size == 0)
+	if (size == 0) {
+		puts("Found end chunked packet");
 		pkt->parent_message->is_completed = 1;
+	}
 
 	return size + (size_end - pkt->buffer);
 }
@@ -277,10 +282,14 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 		msg->type = sniff_request_type(pkt);
 		// TODO: resize buffer if header is too large
 		if (HTTP_CHUNKED == msg->type) {
-			// TODO: First detection of chunked
-			// should only include header in packet
-			// TODO: move extra data into msg's
-			// extra data buffer
+			// Note: this was the packet with the
+			// header.
+
+			// Save packet's data except our header
+			// into message
+			long long header_size = packet_get_header_size(pkt);
+			packet_store_spare(pkt,
+			                   pkt->filled_size - header_size);
 			return 0;
 		}
 	}
@@ -288,9 +297,17 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 
 	// Map types to size gueses
 	if (HTTP_CHUNKED == msg->type) {
-		// TODO: return either header size
-		// or remaining data in chunk
-		return (int)packet_find_chunked_size(pkt);
+		if (pkt->expected_size == 0) {
+			long long size = packet_find_chunked_size(pkt);
+			if (size <= 0) {
+				// Then read full buffer
+				return pkt->expected_size - pkt->filled_size;
+			}
+			pkt->expected_size = size;
+		}
+
+		// TODO: expand packet if needed
+		return pkt->expected_size - pkt->filled_size;
 	}
 	if (HTTP_HEADER_ONLY == msg->type) {
 		// Note: we only know it is header only

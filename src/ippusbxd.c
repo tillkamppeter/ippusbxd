@@ -66,12 +66,12 @@ static void start_daemon(uint32_t requested_port)
 		while (!msg_server->is_completed) {
 			struct http_packet_t *pkt = get_packet_usb(usb, msg_server);
 			if (pkt == NULL) {
-				if (msg_client->is_completed)
+				if (msg_server->is_completed)
 					break;
 				ERR("Failed to receive packet from printer");
 				goto conn_cleanup;
 			}
-			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+			//printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
 			tcp_packet_send(tcp, pkt);
 			free_packet(pkt);
