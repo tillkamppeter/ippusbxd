@@ -146,9 +146,8 @@ static long long packet_find_chunked_size(struct http_packet_t *pkt)
 		}
 	}
 
-	if (size_end == NULL) {
+	if (size_end == NULL)
 		return -1;
-	}
 
 	// Temporary stringification for strtol()
 	uint8_t original_char = *size_end;
@@ -338,9 +337,8 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 
 	if ((HTTP_CONTENT_LENGTH == msg->type &&
 	     msg->received_size >= msg->claimed_size)
-	    || HTTP_HEADER_ONLY == msg->type) {
+	    || HTTP_HEADER_ONLY == msg->type)
 			msg->is_completed = 1;
-	}
 
 	// TODO: move extra data into msg's buffer
 }

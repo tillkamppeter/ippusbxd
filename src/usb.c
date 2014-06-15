@@ -233,9 +233,8 @@ error_interfaces:
 	if (usb->interfaces != NULL)
 		free(usb->interfaces);
 error:
-	if (device_list != NULL) {
+	if (device_list != NULL)
 		libusb_free_device_list(device_list, 1);
-	}
 	if (usb != NULL) {
 		if (usb->context != NULL) {
 			libusb_exit(usb->context);
@@ -329,8 +328,7 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 	return pkt;
 
 error:
-	if (pkt != NULL) {
+	if (pkt != NULL)
 		free_packet(pkt);
-	}
 	return NULL;
 }
