@@ -47,7 +47,7 @@ static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 }
 
 // TODO: refactor this
-struct usb_sock_t *open_usb()
+struct usb_sock_t *usb_open()
 {
 	struct usb_sock_t *usb = calloc(1, sizeof *usb);
 	int status = 1;
@@ -257,7 +257,7 @@ void usb_close(struct usb_sock_t *usb)
 	return;
 }
 
-void send_packet_usb(struct usb_sock_t *usb, struct http_packet_t *pkt)
+void usb_packet_send(struct usb_sock_t *usb, struct http_packet_t *pkt)
 {
 	// TODO: lock priority interfaces
 	// TODO: transfer in max length chunks
@@ -270,7 +270,7 @@ void send_packet_usb(struct usb_sock_t *usb, struct http_packet_t *pkt)
 	printf("Note: sent %d bytes with status %d\n", size_sent, status);
 }
 
-struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message_t *msg)
+struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message_t *msg)
 {
 	// TODO: Make usb use a message, but first messages need to do things
 	struct http_packet_t *pkt = packet_new(msg);

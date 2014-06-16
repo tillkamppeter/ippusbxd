@@ -17,9 +17,8 @@ struct usb_sock_t {
 	struct usb_interface *interfaces;
 };
 
-struct usb_sock_t *open_usb(void);
+struct usb_sock_t *usb_open(void);
 void usb_close(struct usb_sock_t *);
 
-void send_packet_usb(struct usb_sock_t *, struct http_packet_t *);
-
-struct http_packet_t *get_packet_usb(struct usb_sock_t *, struct http_message_t *);
+void usb_packet_send(struct usb_sock_t *, struct http_packet_t *);
+struct http_packet_t *usb_packet_get(struct usb_sock_t *, struct http_message_t *);

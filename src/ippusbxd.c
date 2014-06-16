@@ -13,7 +13,7 @@
 static void start_daemon(uint32_t requested_port)
 {
 	// Capture USB device
-	struct usb_sock_t *usb = open_usb();
+	struct usb_sock_t *usb = usb_open();
 	if (usb == NULL)
 		goto cleanup_usb;
 
@@ -58,13 +58,13 @@ static void start_daemon(uint32_t requested_port)
 			}
 			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
-			send_packet_usb(usb, pkt);
+			usb_packet_send(usb, pkt);
 			packet_free(pkt);
 		}
 
 		// Server's responce
 		while (!msg_server->is_completed) {
-			struct http_packet_t *pkt = get_packet_usb(usb, msg_server);
+			struct http_packet_t *pkt = usb_packet_get(usb, msg_server);
 			if (pkt == NULL) {
 				if (msg_server->is_completed)
 					break;
