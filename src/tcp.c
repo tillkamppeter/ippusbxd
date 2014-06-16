@@ -67,7 +67,7 @@ void tcp_close(struct tcp_sock_t *this)
 	free(this);
 }
 
-uint32_t get_port_number(struct tcp_sock_t *sock)
+uint32_t tcp_port_number_get(struct tcp_sock_t *sock)
 {
 	sock->info_size = sizeof sock->info;
 	int query_status = getsockname(

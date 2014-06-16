@@ -23,7 +23,7 @@ static void start_daemon(uint32_t requested_port)
 		goto cleanup_http;
 
 	// TODO: print port then fork
-	uint32_t real_port = get_port_number(tcp_socket);
+	uint32_t real_port = tcp_port_number_get(tcp_socket);
 	if (requested_port != 0 && requested_port != real_port) {
 		ERR("Received port number did not match requested port number. "
 		    "The requested port number may be too high.");
