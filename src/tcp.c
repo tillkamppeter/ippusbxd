@@ -110,7 +110,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message
 	// Assemble packet
 	pkt->filled_size = size_read;
 
-	enum http_request_t type = sniff_request_type(pkt);
+	enum http_request_t type = packet_find_type(pkt);
 	if (type == HTTP_HEADER_ONLY)
 		msg->is_completed = 1;
 

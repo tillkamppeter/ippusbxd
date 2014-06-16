@@ -189,7 +189,7 @@ static long long packet_get_header_size(struct http_packet_t *pkt)
 	return -1;
 }
 
-enum http_request_t sniff_request_type(struct http_packet_t *pkt)
+enum http_request_t packet_find_type(struct http_packet_t *pkt)
 {
 	enum http_request_t type = HTTP_UNKNOWN;
 	int size = -1;
@@ -278,7 +278,7 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 	struct http_message_t *msg = pkt->parent_message;
 	if (HTTP_UNSET == msg->type ||
 	    HTTP_UNKNOWN == msg->type) {
-		msg->type = sniff_request_type(pkt);
+		msg->type = packet_find_type(pkt);
 		// TODO: resize buffer if header is too large
 		if (HTTP_CHUNKED == msg->type) {
 			// Note: this was the packet with the

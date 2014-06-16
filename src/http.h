@@ -42,10 +42,10 @@ struct http_packet_t {
 struct http_message_t *http_message_new(void);
 void free_message(struct http_message_t *);
 
-enum http_request_t sniff_request_type(struct http_packet_t *pkt);
+enum http_request_t packet_find_type(struct http_packet_t *pkt);
+int packet_at_capacity(struct http_packet_t *);
+int packet_pending_bytes(struct http_packet_t *);
+void packet_mark_received(struct http_packet_t *, size_t);
+
 struct http_packet_t *packet_new(struct http_message_t *);
 void free_packet(struct http_packet_t *);
-
-int packet_pending_bytes(struct http_packet_t *);
-int packet_at_capacity(struct http_packet_t *);
-void packet_mark_received(struct http_packet_t *, size_t);
