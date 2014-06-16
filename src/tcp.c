@@ -118,7 +118,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message
 	 
 error:
 	if (pkt != NULL)
-		free_packet(pkt);
+		packet_free(pkt);
 	return NULL;
 }
 

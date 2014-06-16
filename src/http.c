@@ -34,7 +34,7 @@ struct http_message_t *http_message_new()
 	return msg;
 }
 
-void free_message(struct http_message_t *msg)
+void message_free(struct http_message_t *msg)
 {
 	free(msg->spare_buffer);
 	free(msg);
@@ -372,7 +372,7 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	return pkt;
 }
 
-void free_packet(struct http_packet_t *pkt)
+void packet_free(struct http_packet_t *pkt)
 {
 	free(pkt->buffer);
 	free(pkt);

@@ -245,7 +245,7 @@ error_usbinit:
 	return NULL;
 }
 
-void close_usb(struct usb_sock_t *usb)
+void usb_close(struct usb_sock_t *usb)
 {
 	for (uint32_t i = 0; i < usb->num_interfaces; i++) {
 		int number = usb->interfaces[i].interface_number;
@@ -329,6 +329,6 @@ struct http_packet_t *get_packet_usb(struct usb_sock_t *usb, struct http_message
 
 error:
 	if (pkt != NULL)
-		free_packet(pkt);
+		packet_free(pkt);
 	return NULL;
 }

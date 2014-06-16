@@ -59,7 +59,7 @@ static void start_daemon(uint32_t requested_port)
 			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
 			send_packet_usb(usb, pkt);
-			free_packet(pkt);
+			packet_free(pkt);
 		}
 
 		// Server's responce
@@ -74,16 +74,16 @@ static void start_daemon(uint32_t requested_port)
 			//printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
 			tcp_packet_send(tcp, pkt);
-			free_packet(pkt);
+			packet_free(pkt);
 		}
 
 
 
 	conn_cleanup:
 		if (msg_client != NULL)
-			free_message(msg_client);
+			message_free(msg_client);
 		if (msg_server != NULL)
-			free_message(msg_server);
+			message_free(msg_server);
 		if (tcp!= NULL)
 			tcp_conn_close(tcp);
 		// TODO: when we fork make sure to return here
@@ -94,7 +94,7 @@ cleanup_http:
 		tcp_close(tcp_socket);
 cleanup_usb:
 	if (usb != NULL)
-		close_usb(usb);
+		usb_close(usb);
 	return;
 }
 
