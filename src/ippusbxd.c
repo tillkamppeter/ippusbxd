@@ -13,8 +13,8 @@
 static void start_daemon(uint32_t requested_port)
 {
 	// Capture USB device
-	struct usb_sock_t *usb = usb_open();
-	if (usb == NULL)
+	struct usb_sock_t *usb_sock = usb_open();
+	if (usb_sock == NULL)
 		goto cleanup_usb;
 
 	// Capture a socket
@@ -31,7 +31,7 @@ static void start_daemon(uint32_t requested_port)
 	}
 	printf("%u\n", real_port);
 
-	struct usb_conn_t *usb_conn = usb_conn_get(usb);
+	struct usb_conn_t *usb = usb_conn_get(usb_sock);
 	while (1) {
 		// TODO: spawn thread
 		struct http_message_t *msg_client = NULL;
@@ -58,13 +58,13 @@ static void start_daemon(uint32_t requested_port)
 					break;
 
 				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
-				usb_conn_packet_send(usb_conn, pkt);
+				usb_conn_packet_send(usb, pkt);
 				packet_free(pkt);
 			}
 
 			// Server's responce
 			for (;;) {
-				pkt = usb_conn_packet_get(usb_conn, msg_server);
+				pkt = usb_conn_packet_get(usb, msg_server);
 				if (pkt == NULL)
 					break;
 
@@ -90,8 +90,8 @@ cleanup_http:
 	if (tcp_socket!= NULL)
 		tcp_close(tcp_socket);
 cleanup_usb:
-	if (usb != NULL)
-		usb_close(usb);
+	if (usb_sock != NULL)
+		usb_close(usb_sock);
 	return;
 }
 
