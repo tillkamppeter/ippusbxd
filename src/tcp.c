@@ -87,8 +87,20 @@ error:
 	return 0;
 }
 
-struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message_t *msg)
+struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
+                                     struct http_message_t *msg)
 {
+	// Ensure data available ==------------------------------------------==
+	uint8_t ignored_data;
+	ssize_t has_data = recv(tcp->sd, &ignored_data, 1, MSG_PEEK);
+	if (has_data < 0) {
+		return NULL;
+	} else if (has_data == 0) {
+		// TODO: mark closed socket
+		tcp->is_closed = 1;
+	}
+
+	// Fill packet ==----------------------------------------------------==
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet for incoming tcp message");
@@ -96,25 +108,13 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp, struct http_message
 	}
 
 	// Read until we have atleast one packet
-	size_t size_read = recv(tcp->sd, pkt->buffer, pkt->buffer_capacity, 0);
+	ssize_t size_read = recv(tcp->sd, pkt->buffer, pkt->buffer_capacity, 0);
+	if (size_read <= 0) {
+		ERR("data known in socket yet none present");
+		goto error;
+	}
 
-	// 5th case of http message end is when
-	// client closes the connection.
-	// Defined here:
-	// http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
-	// Note: this method will not be used by clients
-	// if they expect a responce.
-	if (size_read == 0)
-		msg->is_completed = 1;
-	
-	// TODO: Did we receive more than a packets worth?
-
-	// Assemble packet
-	pkt->filled_size = size_read;
-
-	enum http_request_t type = packet_find_type(pkt);
-	if (type == HTTP_HEADER_ONLY)
-		msg->is_completed = 1;
+	packet_mark_received(pkt, size_read);
 
 	return pkt;	
 	 

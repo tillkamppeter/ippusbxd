@@ -22,6 +22,7 @@ struct tcp_sock_t {
 
 struct tcp_conn_t {
 	int sd;
+	int is_closed;
 };
 
 struct tcp_sock_t *tcp_open(uint32_t);
@@ -31,5 +32,6 @@ uint32_t tcp_port_number_get(struct tcp_sock_t *);
 struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *);
 void tcp_conn_close(struct tcp_conn_t *);
 
-struct http_packet_t *tcp_packet_get(struct tcp_conn_t *, struct http_message_t *);
+struct http_packet_t *tcp_packet_get(struct tcp_conn_t *,
+                                     struct http_message_t *);
 void tcp_packet_send(struct tcp_conn_t *, struct http_packet_t *);
