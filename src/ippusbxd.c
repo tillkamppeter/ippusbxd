@@ -47,34 +47,29 @@ static void start_daemon(uint32_t requested_port)
 			goto conn_cleanup;
 		}
 
-		// Client's request
-		while (!msg_client->is_completed) {
-			struct http_packet_t *pkt = tcp_packet_get(tcp, msg_client);
-			if (pkt == NULL) {
-				if (msg_client->is_completed)
+		while (!tcp->is_closed) {
+			struct http_packet_t *pkt;
+
+			// Client's request
+			for (;;) {
+				pkt = tcp_packet_get(tcp, msg_client);
+				if (pkt == NULL)
 					break;
-				ERR("Failed to receive packet from client");
-				goto conn_cleanup;
+
+				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+				usb_packet_send(usb, pkt);
+				packet_free(pkt);
 			}
-			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
-			usb_packet_send(usb, pkt);
-			packet_free(pkt);
-		}
-
-		// Server's responce
-		while (!msg_server->is_completed) {
-			struct http_packet_t *pkt = usb_packet_get(usb, msg_server);
-			if (pkt == NULL) {
-				if (msg_server->is_completed)
+			// Server's responce
+			for (;;) {
+				pkt = usb_packet_get(usb, msg_server);
+				if (pkt == NULL)
 					break;
-				ERR("Failed to receive packet from printer");
-				goto conn_cleanup;
-			}
-			//printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 
-			tcp_packet_send(tcp, pkt);
-			packet_free(pkt);
+				tcp_packet_send(tcp, pkt);
+				packet_free(pkt);
+			}
 		}
 
 
