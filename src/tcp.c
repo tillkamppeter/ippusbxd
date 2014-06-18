@@ -43,11 +43,13 @@ struct tcp_sock_t *tcp_open(uint32_t port)
 		goto error;
 	}
 
-	// Let kernel over-accept HTTPMAXPENDCONNS number of connections
+	// Let kernel over-accept max number of connections
 	if (listen(this->sd, HTTP_MAX_PENDING_CONNS) < 0) {
 		ERR("listen failed on socket");
 		goto error;
 	}
+
+	
 
 	return this;
 
@@ -139,6 +141,19 @@ struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *sock)
 	conn->sd = accept(sock->sd, NULL, NULL);
 	if (conn->sd < 0) {
 		ERR("accept failed");
+		goto error;
+	}
+
+	// Make socket non-blocking
+	int flags = fcntl(conn->sd, F_GETFL, 0);
+	if (flags < 0) {
+		ERR("could not get socket's flags");
+		goto error;
+	}
+	flags |= O_NONBLOCK;
+	int status = fcntl(conn->sd, F_SETFL, flags);
+	if (status != 0) {
+		ERR("failed to set socket to non-blocking");
 		goto error;
 	}
 
