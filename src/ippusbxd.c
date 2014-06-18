@@ -31,6 +31,7 @@ static void start_daemon(uint32_t requested_port)
 	}
 	printf("%u\n", real_port);
 
+	struct usb_conn_t *usb_conn = usb_conn_get(usb);
 	while (1) {
 		// TODO: spawn thread
 		struct http_message_t *msg_client = NULL;
@@ -57,13 +58,13 @@ static void start_daemon(uint32_t requested_port)
 					break;
 
 				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
-				usb_packet_send(usb, pkt);
+				usb_conn_packet_send(usb_conn, pkt);
 				packet_free(pkt);
 			}
 
 			// Server's responce
 			for (;;) {
-				pkt = usb_packet_get(usb, msg_server);
+				pkt = usb_conn_packet_get(usb_conn, msg_server);
 				if (pkt == NULL)
 					break;
 

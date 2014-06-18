@@ -257,20 +257,42 @@ void usb_close(struct usb_sock_t *usb)
 	return;
 }
 
-void usb_packet_send(struct usb_sock_t *usb, struct http_packet_t *pkt)
+struct usb_conn_t *usb_conn_get(struct usb_sock_t *usb)
+{
+	if (usb->num_alloced >= usb->num_interfaces)
+		return NULL;
+
+	struct usb_conn_t *conn = calloc(1, sizeof(*conn));
+	if (conn == NULL) {
+		ERR("failed to aloc space for usb connection");
+		return NULL;
+	}
+
+	conn->parent = usb;
+	conn->interface = usb->interfaces + usb->num_alloced++;
+	return conn;
+}
+
+// Note: connections cannot be reallocated.
+void usb_conn_free(struct usb_conn_t *conn)
+{
+	free(conn);
+}
+
+void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 {
 	// TODO: lock priority interfaces
 	// TODO: transfer in max length chunks
 	int size_sent = 0;
 	int timeout = 1000; // in milliseconds
-	int status = libusb_bulk_transfer(usb->printer,
-	                                  usb->interfaces[0].endpoint_out,
+	int status = libusb_bulk_transfer(conn->parent->printer,
+	                                  conn->interface->endpoint_out,
 	                                  pkt->buffer, pkt->filled_size,
 	                                  &size_sent, timeout);
 	printf("Note: sent %d bytes over usb with status %d\n", size_sent, status);
 }
 
-struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message_t *msg)
+struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
 {
 	// TODO: Make usb use a message, but first messages need to do things
 	struct http_packet_t *pkt = packet_new(msg);
@@ -283,8 +305,8 @@ struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message
 	int size_sent = 0;
 	const int timeout = 10; // in milliseconds
 	int status = libusb_bulk_transfer(
-	                      usb->printer,
-	                      usb->interfaces[0].endpoint_in,
+	                      conn->parent->printer,
+	                      conn->interface->endpoint_in,
 	                      pkt->buffer,
 	                      pkt->buffer_capacity,
 	                      &size_sent, timeout);
