@@ -276,58 +276,39 @@ struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet struct for usb connection");
-		goto error;
+		goto cleanup;
 	}
 
-	while (!(packet_at_capacity(pkt) || msg->is_completed)) {
+	// File packet
+	int size_sent = 0;
+	int bytes_to_read = pkt->buffer_capacity;
+	const int timeout = 1000; // in milliseconds
+	int status = libusb_bulk_transfer(
+	                      usb->printer,
+	                      usb->interfaces[0].endpoint_in,
+	                      pkt->buffer + pkt->filled_size,
+	                      bytes_to_read,
+	                      &size_sent, timeout);
+	if (status != 0)
+		ERR("bulk xfer failed with error code %d", status);
 
-		// Clasify message and desired packet size
-		int bytes_to_read = 0;
-		int pending_bytes = packet_pending_bytes(pkt);
-		if (pending_bytes == 0) {
-			break;
-		} else if (pending_bytes < 0) {
-			bytes_to_read = pkt->buffer_capacity - pkt->filled_size;
+	if (size_sent == 0)
+		goto cleanup;
 
-			if (packet_at_capacity(pkt))
-				break;
-		} else {
-			bytes_to_read = pending_bytes;
-		}
+	packet_mark_received(pkt, size_sent);
 
+	printf("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
+	       msg->type, msg->received_size, msg->claimed_size,
+	       pkt->filled_size, pkt->expected_size);
+	printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
+	       pkt->buffer + pkt->filled_size - size_sent);
 
-		// File packet
-		int size_sent = 0;
-		int status = 0;
-		while (size_sent == 0) {
-			// TODO: yield instead of spinlock
-			const int timeout = 1000; // in milliseconds
-			status = libusb_bulk_transfer(
-			                      usb->printer,
-			                      usb->interfaces[0].endpoint_in,
-			                      pkt->buffer + pkt->filled_size,
-			                      bytes_to_read,
-			                      &size_sent, timeout);
-			//printf("to read: %d\n", bytes_to_read);
-			if (status != 0)
-				ERR("bulk xfer failed with error code %d", status);
-		}
-
-		packet_mark_received(pkt, size_sent);
-
-		printf("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
-		       msg->type, msg->received_size, msg->claimed_size,
-		       pkt->filled_size, pkt->expected_size);
-		printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
-		       pkt->buffer + pkt->filled_size - size_sent);
-
-	}
 
 	printf("==-- End of packet --=\n");
 
 	return pkt;
 
-error:
+cleanup:
 	if (pkt != NULL)
 		packet_free(pkt);
 	return NULL;
