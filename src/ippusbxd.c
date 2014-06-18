@@ -20,14 +20,14 @@ static void start_daemon(uint32_t requested_port)
 	// Capture a socket
 	struct tcp_sock_t *tcp_socket = tcp_open(requested_port);
 	if (tcp_socket == NULL)
-		goto cleanup_http;
+		goto cleanup_tcp;
 
 	// TODO: print port then fork
 	uint32_t real_port = tcp_port_number_get(tcp_socket);
 	if (requested_port != 0 && requested_port != real_port) {
 		ERR("Received port number did not match requested port number. "
 		    "The requested port number may be too high.");
-		goto cleanup_http;
+		goto cleanup_tcp;
 	}
 	printf("%u\n", real_port);
 
@@ -39,13 +39,13 @@ static void start_daemon(uint32_t requested_port)
 		struct tcp_conn_t *tcp = tcp_conn_accept(tcp_socket);
 		if (tcp == NULL) {
 			ERR("Failed to open tcp connection");
-			goto conn_cleanup;
+			goto cleanup_conn;
 		}
 		msg_client = http_message_new();
 		msg_server = http_message_new();
 		if (msg_client == NULL || msg_server == NULL) {
 			ERR("Creating messages failed");
-			goto conn_cleanup;
+			goto cleanup_conn;
 		}
 
 		while (!tcp->is_closed) {
@@ -76,17 +76,17 @@ static void start_daemon(uint32_t requested_port)
 
 
 
-	conn_cleanup:
+	cleanup_conn:
 		if (msg_client != NULL)
 			message_free(msg_client);
 		if (msg_server != NULL)
 			message_free(msg_server);
-		if (tcp!= NULL)
+		if (tcp != NULL)
 			tcp_conn_close(tcp);
 		// TODO: when we fork make sure to return here
 	}
 
-cleanup_http:
+cleanup_tcp:
 	if (tcp_socket!= NULL)
 		tcp_close(tcp_socket);
 cleanup_usb:
