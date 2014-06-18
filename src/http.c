@@ -117,6 +117,8 @@ static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
 static void packet_load_spare(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
+	if (msg->spare_filled == 0)
+		return;
 
 	size_t spare_avail = msg->spare_filled;
 	size_t buffer_open = pkt->buffer_capacity - pkt->filled_size;
@@ -287,8 +289,10 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 			// Save packet's data except our header
 			// into message
 			long long header_size = packet_get_header_size(pkt);
+			/*
 			packet_store_spare(pkt,
 			                   pkt->filled_size - header_size);
+			*/
 			return 0;
 		}
 	}
@@ -331,16 +335,10 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
 {
-	struct http_message_t *msg = pkt->parent_message;
 	pkt->filled_size += received;
+
+	struct http_message_t *msg = pkt->parent_message;
 	msg->received_size += received;
-
-	if ((HTTP_CONTENT_LENGTH == msg->type &&
-	     msg->received_size >= msg->claimed_size)
-	    || HTTP_HEADER_ONLY == msg->type)
-			msg->is_completed = 1;
-
-	// TODO: move extra data into msg's buffer
 }
 
 struct http_packet_t *packet_new(struct http_message_t *parent_msg)

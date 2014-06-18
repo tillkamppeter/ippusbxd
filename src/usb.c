@@ -267,7 +267,7 @@ void usb_packet_send(struct usb_sock_t *usb, struct http_packet_t *pkt)
 	                                  usb->interfaces[0].endpoint_out,
 	                                  pkt->buffer, pkt->filled_size,
 	                                  &size_sent, timeout);
-	printf("Note: sent %d bytes with status %d\n", size_sent, status);
+	printf("Note: sent %d bytes over usb with status %d\n", size_sent, status);
 }
 
 struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message_t *msg)
@@ -288,8 +288,11 @@ struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message
 	                      pkt->buffer,
 	                      pkt->buffer_capacity,
 	                      &size_sent, timeout);
-	if (status != 0)
-		ERR("bulk xfer failed with error code %d", status);
+	if (status != 0) {
+		if (status != LIBUSB_ERROR_TIMEOUT)
+			ERR("bulk xfer failed with error code %d", status);
+		goto cleanup;
+	}
 
 	if (size_sent == 0)
 		goto cleanup;

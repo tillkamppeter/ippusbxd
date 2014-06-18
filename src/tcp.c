@@ -127,6 +127,7 @@ error:
 void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
 	send(conn->sd, pkt->buffer, pkt->filled_size, 0);
+	printf("Note: sent %lu bytes over tcp\n", pkt->filled_size);
 }
 
 

@@ -8,7 +8,7 @@
 
 #include "http.h"
 
-#define HTTP_MAX_PENDING_CONNS 5
+#define HTTP_MAX_PENDING_CONNS 0
 #define BUFFER_STEP (1 << 13)
 #define BUFFER_STEP_RATIO (2)
 #define BUFFER_INIT_RATIO (1)
