@@ -281,13 +281,12 @@ struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message
 
 	// File packet
 	int size_sent = 0;
-	int bytes_to_read = pkt->buffer_capacity;
-	const int timeout = 1000; // in milliseconds
+	const int timeout = 10; // in milliseconds
 	int status = libusb_bulk_transfer(
 	                      usb->printer,
 	                      usb->interfaces[0].endpoint_in,
-	                      pkt->buffer + pkt->filled_size,
-	                      bytes_to_read,
+	                      pkt->buffer,
+	                      pkt->buffer_capacity,
 	                      &size_sent, timeout);
 	if (status != 0)
 		ERR("bulk xfer failed with error code %d", status);
@@ -302,9 +301,6 @@ struct http_packet_t *usb_packet_get(struct usb_sock_t *usb, struct http_message
 	       pkt->filled_size, pkt->expected_size);
 	printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
 	       pkt->buffer + pkt->filled_size - size_sent);
-
-
-	printf("==-- End of packet --=\n");
 
 	return pkt;
 

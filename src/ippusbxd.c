@@ -56,7 +56,6 @@ static void start_daemon(uint32_t requested_port)
 				if (pkt == NULL)
 					break;
 
-				puts("here1");
 				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 				usb_packet_send(usb, pkt);
 				packet_free(pkt);
@@ -68,7 +67,6 @@ static void start_daemon(uint32_t requested_port)
 				if (pkt == NULL)
 					break;
 
-				puts("here2");
 				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 				tcp_packet_send(tcp, pkt);
 				packet_free(pkt);

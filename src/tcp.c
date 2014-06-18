@@ -96,8 +96,8 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 	if (has_data < 0) {
 		return NULL;
 	} else if (has_data == 0) {
-		// TODO: mark closed socket
 		tcp->is_closed = 1;
+		return NULL;
 	}
 
 	// Fill packet ==----------------------------------------------------==
