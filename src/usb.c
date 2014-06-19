@@ -283,6 +283,7 @@ void usb_close(struct usb_sock_t *usb)
 
 struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
 {
+	// Lock an interface
 	sem_wait(&usb->pool_lock);
 
 	struct usb_conn_t *conn = calloc(1, sizeof(*conn));
@@ -300,12 +301,14 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
 
 void usb_conn_release(struct usb_conn_t *conn)
 {
-	sem_post(&conn->parent->pool_lock);
 
 	// Return usb interface to pool
 	uint32_t slot = ++conn->parent->num_avail;
 	conn->parent->interface_pool[slot] = conn->interface_index;
 	free(conn);
+
+	// Release our interface
+	sem_post(&conn->parent->pool_lock);
 }
 
 void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
