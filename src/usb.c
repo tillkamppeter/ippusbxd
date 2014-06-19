@@ -305,10 +305,11 @@ void usb_conn_release(struct usb_conn_t *conn)
 	// Return usb interface to pool
 	uint32_t slot = ++conn->parent->num_avail;
 	conn->parent->interface_pool[slot] = conn->interface_index;
-	free(conn);
 
 	// Release our interface
 	sem_post(&conn->parent->pool_lock);
+
+	free(conn);
 }
 
 void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
