@@ -4,11 +4,72 @@
 
 #include <unistd.h>
 #include <getopt.h>
+#include <pthread.h>
 
 #include "logging.h"
 #include "http.h"
 #include "tcp.h"
 #include "usb.h"
+
+struct service_thread_param {
+	struct usb_conn_t *usb;
+	struct tcp_conn_t *tcp;
+	pthread_t thread_handle;
+};
+static void *service_connection(void *arg_void)
+{
+	struct service_thread_param *arg = (struct service_thread_param *)arg_void;
+
+	struct http_message_t *msg_client = NULL;
+	struct http_message_t *msg_server = NULL;
+	msg_client = http_message_new();
+	msg_server = http_message_new();
+	if (msg_client == NULL || msg_server == NULL) {
+		ERR("Creating messages failed");
+		goto cleanup;
+	}
+
+	// TODO: move usb conn opening into here and
+	// clasify priority
+	while (!arg->tcp->is_closed) {
+		struct http_packet_t *pkt;
+
+		// Client's request
+		for (;;) {
+			pkt = tcp_packet_get(arg->tcp, msg_client);
+			if (pkt == NULL)
+				break;
+
+			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+			usb_conn_packet_send(arg->usb, pkt);
+			packet_free(pkt);
+		}
+
+		// Server's responce
+		for (;;) {
+			pkt = usb_conn_packet_get(arg->usb, msg_server);
+			if (pkt == NULL)
+				break;
+
+			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+			tcp_packet_send(arg->tcp, pkt);
+			packet_free(pkt);
+		}
+	}
+
+
+
+cleanup:
+	if (msg_client != NULL)
+		message_free(msg_client);
+	if (msg_server != NULL)
+		message_free(msg_server);
+
+	usb_conn_free(arg->usb);
+	tcp_conn_close(arg->tcp);
+	free(arg);
+	return NULL;
+}
 
 static void start_daemon(uint32_t requested_port)
 {
@@ -31,59 +92,42 @@ static void start_daemon(uint32_t requested_port)
 	}
 	printf("%u\n", real_port);
 
-	struct usb_conn_t *usb = usb_conn_get(usb_sock);
-	while (1) {
-		// TODO: spawn thread
-		struct http_message_t *msg_client = NULL;
-		struct http_message_t *msg_server = NULL;
-		struct tcp_conn_t *tcp = tcp_conn_accept(tcp_socket);
-		if (tcp == NULL) {
+	for (;;) {
+		struct service_thread_param *args = calloc(1, sizeof(*args));
+		if (args == NULL) {
+			ERR("Failed to alloc space for thread args");
+			goto cleanup_thread;
+		}
+
+		args->tcp = tcp_conn_accept(tcp_socket);
+		if (args->tcp == NULL) {
 			ERR("Failed to open tcp connection");
-			goto cleanup_conn;
-		}
-		msg_client = http_message_new();
-		msg_server = http_message_new();
-		if (msg_client == NULL || msg_server == NULL) {
-			ERR("Creating messages failed");
-			goto cleanup_conn;
+			goto cleanup_thread;
 		}
 
-		while (!tcp->is_closed) {
-			struct http_packet_t *pkt;
-
-			// Client's request
-			for (;;) {
-				pkt = tcp_packet_get(tcp, msg_client);
-				if (pkt == NULL)
-					break;
-
-				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
-				usb_conn_packet_send(usb, pkt);
-				packet_free(pkt);
-			}
-
-			// Server's responce
-			for (;;) {
-				pkt = usb_conn_packet_get(usb, msg_server);
-				if (pkt == NULL)
-					break;
-
-				printf("%.*s", (int)pkt->filled_size, pkt->buffer);
-				tcp_packet_send(tcp, pkt);
-				packet_free(pkt);
-			}
+		args->usb = usb_conn_get(usb_sock);
+		if (args->usb == NULL) {
+			ERR("Failed to get usb interface");
+			goto cleanup_thread;
 		}
 
+		int status = pthread_create(&args->thread_handle, NULL,
+		                            &service_connection, args);
+		if (status) {
+			ERR("Failed to spawn thread, error %d", status);
+			goto cleanup_thread;
+		}
 
+		continue;
 
-	cleanup_conn:
-		if (msg_client != NULL)
-			message_free(msg_client);
-		if (msg_server != NULL)
-			message_free(msg_server);
-		if (tcp != NULL)
-			tcp_conn_close(tcp);
-		// TODO: when we fork make sure to return here
+	cleanup_thread:
+		if (args != NULL) {
+			if (args->tcp != NULL)
+				tcp_conn_close(args->tcp);
+			if (args->usb != NULL)
+				usb_conn_free(args->usb);
+			free(args);
+		}
 	}
 
 cleanup_tcp:

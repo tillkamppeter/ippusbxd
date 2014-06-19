@@ -14,10 +14,12 @@ elseif( ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
 endif()
 
+# Pthreads
+find_package(Threads REQUIRED)
 
+# Libusb
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(LIBUSB REQUIRED)
-set(LIBS ${LIBS} ${LIBSUSB_LIBRARIES})
 include_directories(${LIBUSB_INCLUDE_DIR})
 
 
@@ -28,5 +30,6 @@ tcp.c
 usb.c
 logging.c
 )
+target_link_libraries(ippusbxd ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(ippusbxd ${LIBUSB_LIBRARIES})
 
