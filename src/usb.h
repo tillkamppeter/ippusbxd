@@ -1,6 +1,7 @@
 #pragma once
 
 #include <libusb.h>
+#include <semaphore.h>
 
 struct usb_interface {
 	uint8_t interface_number;
@@ -19,6 +20,7 @@ struct usb_sock_t {
 
 	uint32_t num_avail;
 	uint32_t *interface_pool;
+	sem_t pool_lock;
 };
 
 struct usb_conn_t {

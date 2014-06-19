@@ -236,6 +236,12 @@ found_device:
 		usb->interface_pool[i] = i;
 	}
 
+	int status_lock = sem_init(&usb->pool_lock, 0, usb->num_avail);
+	if (status_lock != 0) {
+		ERR("Failed to create pool lock");
+		goto error;
+	}
+
 	return usb;
 
 error_config:
@@ -268,6 +274,7 @@ void usb_close(struct usb_sock_t *usb)
 	libusb_close(usb->printer);
 	libusb_exit(usb->context);
 
+	sem_destroy(&usb->pool_lock);
 	free(usb->interfaces);
 	free(usb->interface_pool);
 	free(usb);
@@ -276,8 +283,7 @@ void usb_close(struct usb_sock_t *usb)
 
 struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
 {
-	if (usb->num_avail <= 0)
-		return NULL;
+	sem_wait(&usb->pool_lock);
 
 	struct usb_conn_t *conn = calloc(1, sizeof(*conn));
 	if (conn == NULL) {
@@ -294,7 +300,8 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
 
 void usb_conn_release(struct usb_conn_t *conn)
 {
-	// TODO: lock usb sock
+	sem_post(&conn->parent->pool_lock);
+
 	// Return usb interface to pool
 	uint32_t slot = ++conn->parent->num_avail;
 	conn->parent->interface_pool[slot] = conn->interface_index;
