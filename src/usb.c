@@ -46,7 +46,6 @@ static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 	return ippusb_interface_count;
 }
 
-// TODO: refactor this
 struct usb_sock_t *usb_open()
 {
 	struct usb_sock_t *usb = calloc(1, sizeof *usb);
@@ -98,7 +97,7 @@ struct usb_sock_t *usb_open()
 				selected_config = config_num;
 				selected_ipp_interface_count = interface_count;
 				printer_device = candidate;
-				goto found_target_device;
+				goto found_device;
 			}
 
 			// CONFTEST: Two or more interfaces are required
@@ -113,7 +112,7 @@ struct usb_sock_t *usb_open()
 			// that the device is not a ipp printer
 		}
 	}
-found_target_device:
+found_device:
 
 	if (printer_device == NULL) {
 		ERR("no printer found by that vid & pid & serial");
@@ -134,8 +133,8 @@ found_target_device:
 	usb->interfaces = calloc(usb->num_interfaces,
 	                         sizeof(*usb->interfaces));
 	if (usb->interfaces == NULL) {
-		ERR("Failed to alloc space for interfaces");
-		goto error_interfaces;
+		ERR("Failed to alloc interfaces");
+		goto error;
 	}
 
 	struct libusb_config_descriptor *config = NULL;
@@ -222,23 +221,36 @@ found_target_device:
 		}
 	}
 	libusb_free_config_descriptor(config);
-
-
 	libusb_free_device_list(device_list, 1);
+
+
+	// Pour interfaces into pool ==--------------------------------------==
+	usb->num_avail = usb->num_interfaces;
+	usb->interface_pool = calloc(usb->num_avail,
+	                             sizeof(*usb->interface_pool));
+	if (usb->interface_pool == NULL) {
+		ERR("Failed to alloc interface pool");
+		goto error;
+	}
+	for (uint32_t i = 0; i < usb->num_avail; i++) {
+		usb->interface_pool[i] = i;
+	}
+
 	return usb;
+
 error_config:
 	if (config != NULL)
 		libusb_free_config_descriptor(config);
-error_interfaces:
-	if (usb->interfaces != NULL)
-		free(usb->interfaces);
 error:
 	if (device_list != NULL)
 		libusb_free_device_list(device_list, 1);
 	if (usb != NULL) {
-		if (usb->context != NULL) {
+		if (usb->context != NULL)
 			libusb_exit(usb->context);
-		}
+		if (usb->interfaces != NULL)
+			free(usb->interfaces);
+		if (usb->interface_pool != NULL)
+			free(usb->interface_pool);
 		free(usb);
 	}
 error_usbinit:
@@ -247,19 +259,24 @@ error_usbinit:
 
 void usb_close(struct usb_sock_t *usb)
 {
+	// Release interfaces
 	for (uint32_t i = 0; i < usb->num_interfaces; i++) {
 		int number = usb->interfaces[i].interface_number;
 		libusb_release_interface(usb->printer, number);
 	}
+
 	libusb_close(usb->printer);
 	libusb_exit(usb->context);
+
+	free(usb->interfaces);
+	free(usb->interface_pool);
 	free(usb);
 	return;
 }
 
-struct usb_conn_t *usb_conn_get(struct usb_sock_t *usb)
+struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
 {
-	if (usb->num_alloced >= usb->num_interfaces)
+	if (usb->num_avail <= 0)
 		return NULL;
 
 	struct usb_conn_t *conn = calloc(1, sizeof(*conn));
@@ -269,20 +286,24 @@ struct usb_conn_t *usb_conn_get(struct usb_sock_t *usb)
 	}
 
 	conn->parent = usb;
-	conn->interface = usb->interfaces + usb->num_alloced++;
+
+	conn->interface_index = usb->interface_pool[--usb->num_avail];
+	conn->interface = usb->interfaces + conn->interface_index;
 	return conn;
 }
 
-// Note: connections cannot be reallocated.
-void usb_conn_free(struct usb_conn_t *conn)
+void usb_conn_release(struct usb_conn_t *conn)
 {
+	// TODO: lock usb sock
+	// Return usb interface to pool
+	uint32_t slot = ++conn->parent->num_avail;
+	conn->parent->interface_pool[slot] = conn->interface_index;
 	free(conn);
 }
 
 void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 {
 	// TODO: lock priority interfaces
-	// TODO: transfer in max length chunks
 	int size_sent = 0;
 	int timeout = 1000; // in milliseconds
 	int status = libusb_bulk_transfer(conn->parent->printer,
@@ -294,7 +315,6 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
 {
-	// TODO: Make usb use a message, but first messages need to do things
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet struct for usb connection");

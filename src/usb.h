@@ -8,6 +8,7 @@ struct usb_interface {
 	uint8_t endpoint_out;
 };
 
+// TODO: add lock on socket
 struct usb_sock_t {
 	libusb_context *context;
 	libusb_device_handle *printer;
@@ -15,19 +16,22 @@ struct usb_sock_t {
 
 	uint32_t num_interfaces;
 	struct usb_interface *interfaces;
-	uint32_t num_alloced;
+
+	uint32_t num_avail;
+	uint32_t *interface_pool;
 };
 
 struct usb_conn_t {
 	struct usb_sock_t *parent;
 	struct usb_interface *interface;
+	uint32_t interface_index;
 };
 
 struct usb_sock_t *usb_open(void);
 void usb_close(struct usb_sock_t *);
 
-struct usb_conn_t *usb_conn_get(struct usb_sock_t *);
-void usb_conn_free(struct usb_conn_t *);
+struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *);
+void usb_conn_release(struct usb_conn_t *);
 
 void usb_conn_packet_send(struct usb_conn_t *, struct http_packet_t *);
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *, struct http_message_t *);

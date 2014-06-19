@@ -12,13 +12,18 @@
 #include "usb.h"
 
 struct service_thread_param {
-	struct usb_conn_t *usb;
 	struct tcp_conn_t *tcp;
+	struct usb_sock_t *usb_sock;
 	pthread_t thread_handle;
 };
 static void *service_connection(void *arg_void)
 {
 	struct service_thread_param *arg = (struct service_thread_param *)arg_void;
+	struct usb_conn_t *usb = usb_conn_aquire(arg->usb_sock);
+	if (usb == NULL) {
+		ERR("Failed to aquire usb interface");
+		return NULL;
+	}
 
 	struct http_message_t *msg_client = NULL;
 	struct http_message_t *msg_server = NULL;
@@ -29,7 +34,6 @@ static void *service_connection(void *arg_void)
 		goto cleanup;
 	}
 
-	// TODO: move usb conn opening into here and
 	// clasify priority
 	while (!arg->tcp->is_closed) {
 		struct http_packet_t *pkt;
@@ -41,17 +45,17 @@ static void *service_connection(void *arg_void)
 				break;
 
 			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
-			usb_conn_packet_send(arg->usb, pkt);
+			usb_conn_packet_send(usb, pkt);
 			packet_free(pkt);
 		}
 
 		// Server's responce
 		for (;;) {
-			pkt = usb_conn_packet_get(arg->usb, msg_server);
+			pkt = usb_conn_packet_get(usb, msg_server);
 			if (pkt == NULL)
 				break;
 
-			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+			//printf("%.*s", (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
@@ -65,7 +69,7 @@ cleanup:
 	if (msg_server != NULL)
 		message_free(msg_server);
 
-	usb_conn_free(arg->usb);
+	usb_conn_release(usb);
 	tcp_conn_close(arg->tcp);
 	free(arg);
 	return NULL;
@@ -99,15 +103,10 @@ static void start_daemon(uint32_t requested_port)
 			goto cleanup_thread;
 		}
 
+		args->usb_sock = usb_sock;
 		args->tcp = tcp_conn_accept(tcp_socket);
 		if (args->tcp == NULL) {
 			ERR("Failed to open tcp connection");
-			goto cleanup_thread;
-		}
-
-		args->usb = usb_conn_get(usb_sock);
-		if (args->usb == NULL) {
-			ERR("Failed to get usb interface");
 			goto cleanup_thread;
 		}
 
@@ -124,10 +123,9 @@ static void start_daemon(uint32_t requested_port)
 		if (args != NULL) {
 			if (args->tcp != NULL)
 				tcp_conn_close(args->tcp);
-			if (args->usb != NULL)
-				usb_conn_free(args->usb);
 			free(args);
 		}
+		break;
 	}
 
 cleanup_tcp:
