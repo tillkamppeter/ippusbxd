@@ -19,7 +19,7 @@ struct service_thread_param {
 static void *service_connection(void *arg_void)
 {
 	struct service_thread_param *arg = (struct service_thread_param *)arg_void;
-	struct usb_conn_t *usb = usb_conn_aquire(arg->usb_sock);
+	struct usb_conn_t *usb = usb_conn_aquire(arg->usb_sock, 1);
 	if (usb == NULL) {
 		ERR("Failed to aquire usb interface");
 		return NULL;

@@ -236,9 +236,17 @@ found_device:
 		usb->interface_pool[i] = i;
 	}
 
-	int status_lock = sem_init(&usb->pool_lock, 0, usb->num_avail);
+	// High priority lock
+	int status_lock = sem_init(&usb->pool_high_priority_lock, 0, 1);
 	if (status_lock != 0) {
-		ERR("Failed to create pool lock");
+		ERR("Failed to create low priority pool lock");
+		goto error;
+	}
+	// Low priority lock
+	status_lock = sem_init(&usb->pool_low_priority_lock,
+	                       0, usb->num_avail - 1);
+	if (status_lock != 0) {
+		ERR("Failed to create high priority pool lock");
 		goto error;
 	}
 
@@ -274,17 +282,35 @@ void usb_close(struct usb_sock_t *usb)
 	libusb_close(usb->printer);
 	libusb_exit(usb->context);
 
-	sem_destroy(&usb->pool_lock);
+	sem_destroy(&usb->pool_high_priority_lock);
+	sem_destroy(&usb->pool_low_priority_lock);
 	free(usb->interfaces);
 	free(usb->interface_pool);
 	free(usb);
 	return;
 }
 
-struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
+struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
+                                   int is_high_priority)
 {
-	// Lock an interface
-	sem_wait(&usb->pool_lock);
+	int used_high_priority = 0;
+	if (is_high_priority) {
+		// We first take the high priority lock.
+		sem_wait(&usb->pool_high_priority_lock);
+		used_high_priority = 1;
+
+		// We can then check if a low priority
+		// interface is available.
+		if (!sem_trywait(&usb->pool_low_priority_lock)) {
+			// If a low priority is avail we take that one
+			// then release the high priority interface.
+			// Otherwise we use the high priority interface.
+			used_high_priority = 0;
+			sem_post(&usb->pool_high_priority_lock);
+		}
+	} else {
+		sem_wait(&usb->pool_low_priority_lock);
+	}
 
 	struct usb_conn_t *conn = calloc(1, sizeof(*conn));
 	if (conn == NULL) {
@@ -293,6 +319,7 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb)
 	}
 
 	conn->parent = usb;
+	conn->is_high_priority = used_high_priority;
 
 	conn->interface_index = usb->interface_pool[--usb->num_avail];
 	conn->interface = usb->interfaces + conn->interface_index;
@@ -306,8 +333,11 @@ void usb_conn_release(struct usb_conn_t *conn)
 	uint32_t slot = ++conn->parent->num_avail;
 	conn->parent->interface_pool[slot] = conn->interface_index;
 
-	// Release our interface
-	sem_post(&conn->parent->pool_lock);
+	// Release our interface lock
+	if (conn->is_high_priority)
+		sem_post(&conn->parent->pool_high_priority_lock);
+	else
+		sem_post(&conn->parent->pool_low_priority_lock);
 
 	free(conn);
 }
