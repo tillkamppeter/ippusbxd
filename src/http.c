@@ -81,6 +81,92 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 	return val;
 }
 
+// Warning: this functon should be reviewed indepth.
+// Copying memory is a fantastic place to find exploits
+static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
+{
+	struct http_message_t *msg = pkt->parent_message;
+
+	// Note: Mesaages's spare buffer should be empty!
+	assert(msg->spare_filled == 0);
+
+	// Note: Packets cannot have more spare data than they have data.
+	assert(pkt->filled_size >= spare_size);
+
+	size_t non_spare = pkt->filled_size - spare_size;
+
+	// Note: Packets cannot have more
+	// than BUFFER_STEP of spare data
+	assert(spare_size <= BUFFER_STEP);
+
+	// Note: New packets will have emptied the msg's buffer
+	// we thus know there will room for our spare
+	assert(spare_size <= (msg->spare_capacity - msg->spare_filled));
+
+	// Note: We better not copy past packet's buffer
+	assert(pkt->buffer_capacity >= (non_spare + spare_size));
+
+	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
+
+	msg->spare_filled = spare_size;
+	pkt->filled_size -= spare_size;
+}
+
+// Warning: this functon should be reviewed indepth.
+// Copying memory is a fantastic place to find exploits
+static void packet_load_spare(struct http_packet_t *pkt)
+{
+	struct http_message_t *msg = pkt->parent_message;
+	if (msg->spare_filled == 0)
+		return;
+
+	size_t spare_avail = msg->spare_filled;
+	size_t buffer_open = pkt->buffer_capacity - pkt->filled_size;
+	assert(spare_avail <= buffer_open);
+
+	memcpy(pkt->buffer + pkt->filled_size,
+	       msg->spare_buffer, spare_avail);
+
+	msg->spare_filled = 0;
+	pkt->filled_size += spare_avail;
+}
+
+static long long packet_find_chunked_size(struct http_packet_t *pkt)
+{
+	// TODO: scan to the end of the chunk's
+	// trailer and extensions
+
+	// Find end of size string
+	uint8_t *size_end = NULL;
+	for (size_t i = 0; i < pkt->filled_size; i++) {
+		uint8_t *buf = pkt->buffer;
+		if (buf[i] == ';'  || // chunked extension
+		    buf[i] == '\r' || // CR
+		    buf[i] == '\n') { // Lf
+			size_end = buf + i;
+			break;
+		}
+	}
+
+	if (size_end == NULL)
+		return -1;
+
+	// Temporary stringification for strtol()
+	uint8_t original_char = *size_end;
+	*size_end = '\0';
+	size_t size = strtol((char *)pkt->buffer, NULL, 16);
+	*size_end = original_char;
+
+	// Chunked transport sends a zero size
+	// chunk to mark end of message
+	if (size == 0) {
+		puts("Found end chunked packet");
+		pkt->parent_message->is_completed = 1;
+	}
+
+	return size + (size_end - pkt->buffer);
+}
+
 static long long packet_get_header_size(struct http_packet_t *pkt)
 {
 	// Find header
@@ -182,6 +268,71 @@ do_ret:
 	return type;
 }
 
+int packet_at_capacity(struct http_packet_t *pkt)
+{
+	// NOTE: max_usb_packet_size = 512;
+	return (pkt->buffer_capacity - 512)<= pkt->filled_size;
+}
+
+int packet_pending_bytes(struct http_packet_t *pkt)
+{
+	// Determine message's size delimitation method
+	struct http_message_t *msg = pkt->parent_message;
+	if (HTTP_UNSET == msg->type ||
+	    HTTP_UNKNOWN == msg->type) {
+		msg->type = packet_find_type(pkt);
+		// TODO: resize buffer if header is too large
+		if (HTTP_CHUNKED == msg->type) {
+			// Note: this was the packet with the
+			// header.
+
+			// Save packet's data except our header
+			// into message
+			long long header_size = packet_get_header_size(pkt);
+			/*
+			packet_store_spare(pkt,
+			                   pkt->filled_size - header_size);
+			*/
+			return 0;
+		}
+	}
+
+
+	// Map types to size gueses
+	if (HTTP_CHUNKED == msg->type) {
+		if (pkt->expected_size == 0) {
+			long long size = packet_find_chunked_size(pkt);
+			if (size <= 0) {
+				// Then read full buffer
+				return pkt->expected_size - pkt->filled_size;
+			}
+			pkt->expected_size = size;
+		}
+
+		// TODO: expand packet if needed
+		return pkt->expected_size - pkt->filled_size;
+	}
+	if (HTTP_HEADER_ONLY == msg->type) {
+		// Note: we only know it is header only
+		// if the buffer contains the full header
+		// thus we know no more data is needed.
+		ERR("headeronly");
+		return 0;
+	}
+	if (HTTP_CONTENT_LENGTH == msg->type) {
+		// TODO: if we got extra data then push
+		// extra into message's buffer
+		int msg_remaining = msg->claimed_size - msg->received_size;
+		int pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
+		if (msg_remaining < pkt_remaining)
+			return msg_remaining;
+		return pkt_remaining;
+	}
+
+	// HTTP_UNKOWN or UNSET
+	return -1;
+}
+
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
 {
 	pkt->filled_size += received;
@@ -212,6 +363,9 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	pkt->buffer_capacity = capacity;
 	pkt->filled_size = 0;
 	pkt->parent_message = parent_msg;
+
+	// Claim old spare data
+	packet_load_spare(pkt);
 
 	return pkt;
 }
