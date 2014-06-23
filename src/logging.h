@@ -16,7 +16,7 @@
 #define WARN_1(msg) BASE_LOG("Warning: " msg "\n")
 #define WARN_2(msg, ...) BASE_LOG("Warning: " msg "\n", __VA_ARGS__)
 
-#define NOTE(...) LOG_OVERLOAD(WARN_, __VA_ARGS__)
+#define NOTE(...) LOG_OVERLOAD(NOTE_, __VA_ARGS__)
 #define NOTE_1(msg) BASE_LOG("Note: " msg "\n")
 #define NOTE_2(msg, ...) BASE_LOG("Note: " msg "\n", __VA_ARGS__)
 

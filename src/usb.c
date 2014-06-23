@@ -351,7 +351,7 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 	                                  conn->interface->endpoint_out,
 	                                  pkt->buffer, pkt->filled_size,
 	                                  &size_sent, timeout);
-	printf("Note: sent %d bytes over usb with status %d\n", size_sent, status);
+	NOTE("sent %d bytes over usb with status %d\n", size_sent, status);
 }
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
@@ -382,10 +382,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 
 	packet_mark_received(pkt, size_sent);
 
-	printf("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
+	NOTE("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
 	       msg->type, msg->received_size, msg->claimed_size,
 	       pkt->filled_size, pkt->expected_size);
-	printf("Data (%d bytes)\n%*s\n", size_sent, size_sent,
+	NOTE("Data (%d bytes)\n%*s\n", size_sent, size_sent,
 	       pkt->buffer + pkt->filled_size - size_sent);
 
 	return pkt;

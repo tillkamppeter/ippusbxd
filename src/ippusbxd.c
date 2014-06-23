@@ -44,7 +44,7 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL)
 				break;
 
-			printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+			NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
 			usb_conn_packet_send(usb, pkt);
 			packet_free(pkt);
 		}
@@ -55,7 +55,7 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL)
 				break;
 
-			//printf("%.*s", (int)pkt->filled_size, pkt->buffer);
+			//NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
