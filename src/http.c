@@ -289,10 +289,8 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 			// Save packet's data except our header
 			// into message
 			long long header_size = packet_get_header_size(pkt);
-			/*
 			packet_store_spare(pkt,
 			                   pkt->filled_size - header_size);
-			*/
 			return 0;
 		}
 	}
@@ -309,7 +307,7 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 			pkt->expected_size = size;
 		}
 
-		// TODO: expand packet if needed
+		// TODO: make next packet expect any excess
 		return pkt->expected_size - pkt->filled_size;
 	}
 	if (HTTP_HEADER_ONLY == msg->type) {
@@ -339,6 +337,10 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 
 	struct http_message_t *msg = pkt->parent_message;
 	msg->received_size += received;
+
+	// Store excess data
+	if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
+		packet_store_spare(pkt, pkt->filled_size - pkt->expected_size);
 }
 
 struct http_packet_t *packet_new(struct http_message_t *parent_msg)
