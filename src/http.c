@@ -270,8 +270,9 @@ do_ret:
 
 int packet_at_capacity(struct http_packet_t *pkt)
 {
-	// NOTE: max_usb_packet_size = 512;
-	return (pkt->buffer_capacity - 512)<= pkt->filled_size;
+	// Libusb requires atleast one usb packet's worth of free memory
+	int USB_PACKET_SIZE = 512;
+	return (pkt->buffer_capacity - USB_PACKET_SIZE) <= pkt->filled_size;
 }
 
 int packet_pending_bytes(struct http_packet_t *pkt)
