@@ -275,6 +275,7 @@ int packet_at_capacity(struct http_packet_t *pkt)
 	return (pkt->buffer_capacity - USB_PACKET_SIZE) <= pkt->filled_size;
 }
 
+// TODO: DO NOT USE INT for buffer sizes
 int packet_pending_bytes(struct http_packet_t *pkt)
 {
 	// Determine message's size delimitation method
@@ -282,22 +283,21 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 	if (HTTP_UNSET == msg->type ||
 	    HTTP_UNKNOWN == msg->type) {
 		msg->type = packet_find_type(pkt);
-		// TODO: resize buffer if header is too large
+
 		if (HTTP_CHUNKED == msg->type) {
 			// Note: this was the packet with the
 			// header.
 
-			// Save packet's data except our header
-			// into message
+			// Save any non-header data we got
+			// TODO: Should these be long longs?
 			long long header_size = packet_get_header_size(pkt);
-			packet_store_spare(pkt,
-			                   pkt->filled_size - header_size);
+			long long excess_size = pkt->filled_size - header_size;
+			packet_store_spare(pkt, excess_size);
 			return 0;
 		}
 	}
 
 
-	// Map types to size gueses
 	if (HTTP_CHUNKED == msg->type) {
 		if (pkt->expected_size == 0) {
 			long long size = packet_find_chunked_size(pkt);
@@ -315,12 +315,14 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 		// Note: we only know it is header only
 		// if the buffer contains the full header
 		// thus we know no more data is needed.
-		ERR("headeronly");
+		pkt->expected_size = packet_get_header_size(pkt);
+		packet_mark_received(pkt, 0);
 		return 0;
 	}
 	if (HTTP_CONTENT_LENGTH == msg->type) {
 		// TODO: if we got extra data then push
 		// extra into message's buffer
+		// TODO: make next packet expect any excess
 		int msg_remaining = msg->claimed_size - msg->received_size;
 		int pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
 		if (msg_remaining < pkt_remaining)
@@ -329,7 +331,7 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 	}
 
 	// HTTP_UNKOWN or UNSET
-	return -1;
+	return pkt->buffer_capacity - pkt->filled_size;
 }
 
 void packet_mark_received(struct http_packet_t *pkt, size_t received)

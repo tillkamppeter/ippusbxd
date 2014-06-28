@@ -363,30 +363,39 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	}
 
 	// File packet
-	int size_sent = 0;
-	const int timeout = 10; // in milliseconds
-	int status = libusb_bulk_transfer(
-	                      conn->parent->printer,
-	                      conn->interface->endpoint_in,
-	                      pkt->buffer,
-	                      pkt->buffer_capacity,
-	                      &size_sent, timeout);
-	if (status != 0) {
-		if (status != LIBUSB_ERROR_TIMEOUT)
-			ERR("bulk xfer failed with error code %d", status);
+	const int timeout = 100; // in milliseconds
+	size_t read_size = packet_pending_bytes(pkt);
+	if (read_size == 0)
 		goto cleanup;
+
+	while (read_size != 0 && !msg->is_completed) {
+		int gotten_size = 0;
+		int status = libusb_bulk_transfer(
+		                      conn->parent->printer,
+		                      conn->interface->endpoint_in,
+		                      pkt->buffer + pkt->filled_size,
+		                      read_size,
+		                      &gotten_size, timeout);
+		if (status != 0 && status != LIBUSB_ERROR_TIMEOUT) {
+			ERR("bulk xfer failed with error code %d", status);
+			ERR("tried reading %d bytes", read_size);
+			goto cleanup;
+		}
+		if (gotten_size == 0) {
+			// TODO: timeout in case printer crashed
+		}
+		packet_mark_received(pkt, gotten_size);
+
+		read_size = packet_pending_bytes(pkt);
+		// TODO: if header not found yet at capacity expand packet
 	}
 
-	if (size_sent == 0)
-		goto cleanup;
-
-	packet_mark_received(pkt, size_sent);
 
 	NOTE("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
-	       msg->type, msg->received_size, msg->claimed_size,
-	       pkt->filled_size, pkt->expected_size);
-	NOTE("Data (%d bytes)\n%*s\n", size_sent, size_sent,
-	       pkt->buffer + pkt->filled_size - size_sent);
+	     msg->type, msg->received_size, msg->claimed_size,
+	     pkt->filled_size, pkt->expected_size);
+	NOTE("Data (%d bytes)\n%*s\n", pkt->filled_size,
+	     pkt->filled_size, pkt->buffer);
 
 	return pkt;
 

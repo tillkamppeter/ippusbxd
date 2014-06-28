@@ -37,6 +37,8 @@ struct http_packet_t {
 	uint8_t *buffer;
 
 	struct http_message_t *parent_message;
+
+	uint8_t is_completed;
 };
 
 struct http_message_t *http_message_new(void);
