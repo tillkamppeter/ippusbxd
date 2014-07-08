@@ -90,31 +90,28 @@ error:
 struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
                                      struct http_message_t *msg)
 {
-	// Ensure data available ==------------------------------------------==
-	uint8_t ignored_data;
-	ssize_t has_data = recv(tcp->sd, &ignored_data, 1, MSG_PEEK);
-	if (has_data < 0) {
-		return NULL;
-	} else if (has_data == 0) {
-		tcp->is_closed = 1;
-		return NULL;
-	}
-
-	// Fill packet ==----------------------------------------------------==
+	// Alloc packet ==---------------------------------------------------==
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet for incoming tcp message");
 		goto error;
 	}
 
-	// Read until we have atleast one packet
-	ssize_t size_read = recv(tcp->sd, pkt->buffer, pkt->buffer_capacity, 0);
-	if (size_read <= 0) {
-		ERR("data known in socket yet none present");
+	size_t want_size = packet_pending_bytes(pkt);
+	if (want_size == 0)
 		goto error;
-	}
 
-	packet_mark_received(pkt, size_read);
+	while (want_size != 0 && !msg->is_completed) {
+		uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
+		ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
+		if (gotten_size < 0) {
+			// TODO: transform errno to user readable error
+			ERR("failed to recv data over tcp");
+			goto error;
+		}
+		packet_mark_received(pkt, gotten_size);
+		want_size = packet_pending_bytes(pkt);
+	}
 
 	return pkt;	
 	 

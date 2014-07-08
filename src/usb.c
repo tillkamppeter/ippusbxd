@@ -358,7 +358,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 {
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
-		ERR("failed to create packet struct for usb connection");
+		ERR("failed to create packet for incoming usb message");
 		goto cleanup;
 	}
 
