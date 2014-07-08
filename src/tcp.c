@@ -112,7 +112,6 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 		packet_mark_received(pkt, gotten_size);
 		want_size = packet_pending_bytes(pkt);
 	}
-
 	return pkt;	
 	 
 error:
@@ -139,19 +138,6 @@ struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *sock)
 	conn->sd = accept(sock->sd, NULL, NULL);
 	if (conn->sd < 0) {
 		ERR("accept failed");
-		goto error;
-	}
-
-	// Make socket non-blocking
-	int flags = fcntl(conn->sd, F_GETFL, 0);
-	if (flags < 0) {
-		ERR("could not get socket's flags");
-		goto error;
-	}
-	flags |= O_NONBLOCK;
-	int status = fcntl(conn->sd, F_SETFL, flags);
-	if (status != 0) {
-		ERR("failed to set socket to non-blocking");
 		goto error;
 	}
 

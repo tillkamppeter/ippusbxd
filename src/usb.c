@@ -390,13 +390,6 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		// TODO: if header not found yet at capacity expand packet
 	}
 
-
-	NOTE("==-- %d Msg = (%lu of %lu), pkt = (%lu of %lu)\n",
-	     msg->type, msg->received_size, msg->claimed_size,
-	     pkt->filled_size, pkt->expected_size);
-	NOTE("Data (%d bytes)\n%*s\n", pkt->filled_size,
-	     pkt->filled_size, pkt->buffer);
-
 	return pkt;
 
 cleanup:
