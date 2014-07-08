@@ -9,7 +9,6 @@ struct usb_interface {
 	uint8_t endpoint_out;
 };
 
-// TODO: add lock on socket
 struct usb_sock_t {
 	libusb_context *context;
 	libusb_device_handle *printer;
