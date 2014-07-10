@@ -393,7 +393,7 @@ int packet_expand(struct http_packet_t *pkt)
 	}
 
 	size_t new_size = cur_size * 2;
-	uint8_t new_buf = realloc(pkt->buffer, new_size);
+	uint8_t *new_buf = realloc(pkt->buffer, new_size);
 	if (new_buf == NULL) {
 		// If realloc fails the original buffer is still valid
 		WARN("Failed to expand packet");
