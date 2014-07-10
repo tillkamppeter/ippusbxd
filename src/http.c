@@ -99,13 +99,16 @@ static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
 	// than BUFFER_STEP of spare data
 	assert(spare_size <= BUFFER_STEP);
 
-	// Note: New packets will have emptied the msg's buffer
-	// we thus know there will room for our spare
-	assert(spare_size <= (msg->spare_capacity - msg->spare_filled));
+	// TODO: expand msg's buffer
+	if (spare_size > (msg->spare_capacity - msg->spare_filled)) {
+		WARN("spare data exceeds message's buffer");
+		exit(0);
+	}
 
-	// Note: We better not copy past packet's buffer
+	// Note: We cannot copy past packet's buffer
 	assert(pkt->buffer_capacity >= (non_spare + spare_size));
 
+	// Warn: data can be lost if msg's buffer is too small
 	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
 
 	msg->spare_filled = spare_size;
