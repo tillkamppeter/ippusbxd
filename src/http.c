@@ -380,3 +380,22 @@ void packet_free(struct http_packet_t *pkt)
 	free(pkt->buffer);
 	free(pkt);
 }
+
+#define MAX_PACKET_SIZE (1 << (6 + 20)) // about 64MB
+int packet_expand(struct http_packet_t *pkt)
+{
+	size_t cur_size = pkt->buffer_capacity;
+	if (cur_size >= MAX_PACKET_SIZE) {
+		return -1;
+	}
+
+	size_t new_size = cur_size * 2;
+	uint8_t new_buf = realloc(pkt->buffer, new_size);
+	if (new_buf == NULL) {
+		// If realloc fails the original buffer is still valid
+		WARN("Failed to expand packet");
+		return -1;
+	}
+	pkt->buffer = new_buf;
+	return 0;
+}
