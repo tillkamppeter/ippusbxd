@@ -46,8 +46,9 @@ void message_free(struct http_message_t *);
 
 enum http_request_t packet_find_type(struct http_packet_t *pkt);
 int packet_at_capacity(struct http_packet_t *);
-int packet_pending_bytes(struct http_packet_t *);
+size_t packet_pending_bytes(struct http_packet_t *);
 void packet_mark_received(struct http_packet_t *, size_t);
 
 struct http_packet_t *packet_new(struct http_message_t *);
 void packet_free(struct http_packet_t *);
+ssize_t packet_expand(struct http_packet_t *);

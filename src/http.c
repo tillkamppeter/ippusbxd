@@ -134,7 +134,7 @@ static void packet_load_spare(struct http_packet_t *pkt)
 	pkt->filled_size += spare_avail;
 }
 
-static long long packet_find_chunked_size(struct http_packet_t *pkt)
+static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 {
 	// TODO: scan to the end of the chunk's
 	// trailer and extensions
@@ -197,7 +197,7 @@ static long long packet_get_header_size(struct http_packet_t *pkt)
 enum http_request_t packet_find_type(struct http_packet_t *pkt)
 {
 	enum http_request_t type = HTTP_UNKNOWN;
-	int size = -1;
+	ssize_t size = 0;
 	/* Valid methods for determining http request
 	 * size are defined by W3 in RFC2616 section 4.4
 	 * link: http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
@@ -223,7 +223,7 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 	 * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
 	 */
 
-	long long header_size = packet_get_header_size(pkt);
+	ssize_t header_size = packet_get_header_size(pkt);
 	if (header_size < 0) {
 		// We don't have the header yet
 		// TODO: make UNSET mean no header
@@ -279,7 +279,7 @@ int packet_at_capacity(struct http_packet_t *pkt)
 }
 
 // TODO: DO NOT USE INT for buffer sizes
-int packet_pending_bytes(struct http_packet_t *pkt)
+size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
 	// Determine message's size delimitation method
 	struct http_message_t *msg = pkt->parent_message;
@@ -303,10 +303,12 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 
 	if (HTTP_CHUNKED == msg->type) {
 		if (pkt->expected_size == 0) {
-			long long size = packet_find_chunked_size(pkt);
+			ssize_t size = packet_find_chunked_size(pkt);
 			if (size <= 0) {
 				// Then read full buffer
-				return pkt->expected_size - pkt->filled_size;
+				if (pkt->expected_size > pkt->filled_size)
+					return pkt->buffer_capacity - pkt->filled_size;
+				// TODO: store excess data
 			}
 			pkt->expected_size = size;
 		}
@@ -326,8 +328,8 @@ int packet_pending_bytes(struct http_packet_t *pkt)
 		// TODO: if we got extra data then push
 		// extra into message's buffer
 		// TODO: make next packet expect any excess
-		int msg_remaining = msg->claimed_size - msg->received_size;
-		int pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
+		size_t msg_remaining = msg->claimed_size - msg->received_size;
+		size_t pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
 		if (msg_remaining < pkt_remaining)
 			return msg_remaining;
 		return pkt_remaining;
@@ -385,7 +387,7 @@ void packet_free(struct http_packet_t *pkt)
 }
 
 #define MAX_PACKET_SIZE (1 << (6 + 20)) // about 64MB
-int packet_expand(struct http_packet_t *pkt)
+ssize_t packet_expand(struct http_packet_t *pkt)
 {
 	size_t cur_size = pkt->buffer_capacity;
 	if (cur_size >= MAX_PACKET_SIZE) {
@@ -400,5 +402,5 @@ int packet_expand(struct http_packet_t *pkt)
 		return -1;
 	}
 	pkt->buffer = new_buf;
-	return 0;
+	return new_size - cur_size;
 }
