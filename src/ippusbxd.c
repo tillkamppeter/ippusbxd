@@ -102,7 +102,7 @@ static void start_daemon(uint32_t requested_port, int debug_mode)
 	}
 	printf("%u\n", real_port);
 
-	// Lose connecction to caller
+	// Lose connection to caller
 	if (fork() > 0 && !debug_mode)
 		exit(0);
 
@@ -155,7 +155,6 @@ int main(int argc, char *argv[])
 	int debug_mode = 0;
 	setting_log_target = LOGGING_STDERR;
 
-	// TODO: support long options
 	while ((c = getopt(argc, argv, "hdp:u:s:l")) != -1) {
 		switch (c) {
 		case '?':
@@ -186,7 +185,6 @@ int main(int argc, char *argv[])
 			// Redirect logging to syslog
 			debug_mode = 1;
 			break;
-		// TODO: support --syslog for more daemon like errors
 		}
 	}
 
@@ -200,6 +198,7 @@ int main(int argc, char *argv[])
 		"  -s <serial>  Serial number of desired printer\n"
 		"  -p <portnum> Port number to bind against\n"
 		"  -l           Redirect logging to syslog\n"
+		"  -d           Debug mode for verbose output\n"
 		, argv[0]);
 		return 0;
 	}
