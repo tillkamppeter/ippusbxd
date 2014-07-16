@@ -196,7 +196,7 @@ static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 
 enum http_request_t packet_find_type(struct http_packet_t *pkt)
 {
-	enum http_request_t type = HTTP_UNKNOWN;
+	enum http_request_t type = HTTP_UNSET;
 	ssize_t size = 0;
 	/* Valid methods for determining http request
 	 * size are defined by W3 in RFC2616 section 4.4
@@ -260,11 +260,8 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 		goto do_ret;
 	}
 
-
-	// Note: if we got here then either the packet did not contain
-	// the full header or the client intends to close the connection
-	// to signal end of message. We let the caller decide which it is.
-    
+	// No size was detectable yet header was found
+	type = HTTP_UNKNOWN;
 do_ret:
 	pkt->parent_message->claimed_size = size;
 	pkt->parent_message->type = type;
@@ -278,14 +275,12 @@ int packet_at_capacity(struct http_packet_t *pkt)
 	return (pkt->buffer_capacity - USB_PACKET_SIZE) <= pkt->filled_size;
 }
 
-// TODO: DO NOT USE INT for buffer sizes
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
 	size_t pending = 0;
 	// Determine message's size delimitation method
 	struct http_message_t *msg = pkt->parent_message;
-	if (HTTP_UNSET == msg->type ||
-	    HTTP_UNKNOWN == msg->type) {
+	if (HTTP_UNSET == msg->type) {
 		msg->type = packet_find_type(pkt);
 
 		if (HTTP_CHUNKED == msg->type) {
