@@ -226,8 +226,6 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 	ssize_t header_size = packet_get_header_size(pkt);
 	if (header_size < 0) {
 		// We don't have the header yet
-		// TODO: make UNSET mean no header
-		// and UNKNOWN mean no known size
 		goto do_ret;
 	}
 

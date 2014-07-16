@@ -6,6 +6,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "logging.h"
 #include "tcp.h"
@@ -105,8 +106,9 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 		uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
 		ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
 		if (gotten_size < 0) {
-			// TODO: transform errno to user readable error
-			ERR("failed to recv data over tcp");
+			int errno_saved = errno;
+			ERR("recv failed with err %d:%s", errno_saved,
+				strerror(errno_saved));
 			goto error;
 		}
 		packet_mark_received(pkt, gotten_size);
