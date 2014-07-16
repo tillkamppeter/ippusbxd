@@ -19,26 +19,31 @@ struct service_thread_param {
 static void *service_connection(void *arg_void)
 {
 	struct service_thread_param *arg = (struct service_thread_param *)arg_void;
-	struct usb_conn_t *usb = usb_conn_aquire(arg->usb_sock, 1);
-	if (usb == NULL) {
-		ERR("Failed to aquire usb interface");
-		return NULL;
-	}
 
 	// clasify priority
 	while (!arg->tcp->is_closed) {
+		struct usb_conn_t *usb = NULL;
 
 		// Client's request
 		struct http_message_t *msg = http_message_new();
 		if (msg == NULL) {
 			ERR("Failed to create message");
-			goto cleanup;
+			break;
 		}
+
 		while (!msg->is_completed) {
 			struct http_packet_t *pkt;
 			pkt = tcp_packet_get(arg->tcp, msg);
 			if (pkt == NULL)
 				break;
+			if (usb == NULL) {
+				usb = usb_conn_aquire(arg->usb_sock, 1);
+				if (usb == NULL) {
+					ERR("Failed to aquire usb interface");
+					packet_free(pkt);
+					goto cleanup_subconn;
+				}
+			}
 
 			NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
 			usb_conn_packet_send(usb, pkt);
@@ -50,7 +55,7 @@ static void *service_connection(void *arg_void)
 		msg = http_message_new();
 		if (msg == NULL) {
 			ERR("Failed to create message");
-			goto cleanup;
+			goto cleanup_subconn;
 		}
 		while (!msg->is_completed) {
 			struct http_packet_t *pkt;
@@ -62,13 +67,16 @@ static void *service_connection(void *arg_void)
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
-		message_free(msg);
+
+cleanup_subconn:
+		if (msg != NULL)
+			message_free(msg);
+		if (usb != NULL)
+			usb_conn_release(usb);
 	}
 
 
 
-cleanup:
-	usb_conn_release(usb);
 	tcp_conn_close(arg->tcp);
 	free(arg);
 	return NULL;
