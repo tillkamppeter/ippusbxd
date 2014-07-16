@@ -10,7 +10,6 @@
 #include "logging.h"
 
 #define BUFFER_STEP (1 << 18)
-#define BUFFER_INIT_RATIO (1)
 
 struct http_message_t *http_message_new()
 {
@@ -42,10 +41,10 @@ void message_free(struct http_message_t *msg)
 
 
 static int doesMatch(const char *matcher, size_t matcher_len,
-                     const uint8_t *matchy,  size_t matchy_len)
+                     const uint8_t *key, size_t key_len)
 {
 	for (size_t i = 0; i < matcher_len; i++)
-		if (i >= matchy_len || matcher[i] != matchy[i])
+		if (i >= key_len || matcher[i] != key[i])
 			return 0;
 	return 1;
 }
@@ -69,7 +68,7 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 		++number_end;
 
 	// Failed to find next non-digit
-	// number may have been at end of buffer
+	// header field might be broken
 	if (number_end >= pkt->filled_size)
 		return -1;
 
@@ -77,15 +76,24 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 	char original_char = pkt->buffer[number_end];
 	pkt->buffer[number_end] = '\0';
 	int val = atoi((const char *)(pkt->buffer + number_pos));
+
+	// Restore buffer
 	pkt->buffer[number_end] = original_char;
 	return val;
 }
 
 // Warning: this functon should be reviewed indepth.
 // Copying memory is a fantastic place to find exploits
-static void packet_store_spare(struct http_packet_t *pkt, size_t spare_size)
+// TODO: make this more agreesive with exiting on broken assumptions
+// TODO: Expand msg spare buffer as needed
+static void packet_store_excess(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
+	if (pkt->expected_size >= pkt->filled_size) {
+		ERR("Do not call packet_store_excess() unless needed");
+		return;
+	}
+	size_t spare_size = pkt->filled_size - pkt->expected_size;
 
 	// Note: Mesaages's spare buffer should be empty!
 	assert(msg->spare_filled == 0);
@@ -125,7 +133,7 @@ static void packet_load_spare(struct http_packet_t *pkt)
 
 	size_t spare_avail = msg->spare_filled;
 	size_t buffer_open = pkt->buffer_capacity - pkt->filled_size;
-	assert(spare_avail <= buffer_open);
+	assert(spare_avail <= buffer_open); // TODO: make this runtime error
 
 	memcpy(pkt->buffer + pkt->filled_size,
 	       msg->spare_buffer, spare_avail);
@@ -260,12 +268,14 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 
 	// No size was detectable yet header was found
 	type = HTTP_UNKNOWN;
+
 do_ret:
 	pkt->parent_message->claimed_size = size;
 	pkt->parent_message->type = type;
 	return type;
 }
 
+// TODO: move this into the packet expander
 int packet_at_capacity(struct http_packet_t *pkt)
 {
 	// Libusb requires atleast one usb packet's worth of free memory
@@ -287,16 +297,11 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 			// Save any non-header data we got
 			ssize_t header_size = packet_get_header_size(pkt);
-			if (header_size < 0) {
-				ERR("Failed chunk header size search");
+			if (header_size < 0 || (size_t)header_size < pkt->filled_size) {
+				// Should not happen
 				goto pending_known;
 			}
-			if ((size_t)header_size < pkt->filled_size) {
-				// Should not be possible
-				goto pending_known;
-			}
-			size_t excess_size = pkt->filled_size - header_size;
-			packet_store_spare(pkt, excess_size);
+			pkt->expected_size = header_size;
 			pending = 0;
 			goto pending_known;
 		}
@@ -307,40 +312,25 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 		if (pkt->expected_size == 0) {
 			ssize_t size = packet_find_chunked_size(pkt);
 			if (size <= 0) {
-				// Then read full buffer
-				if (pkt->expected_size > pkt->filled_size) {
-					pending = pkt->buffer_capacity - pkt->filled_size;
-					goto pending_known;
-				}
-				// TODO: store excess data
+				ERR("Malformed chunk-transport http packer receivd");
+				exit(1);
 			}
 			pkt->expected_size = size;
 		}
 
-		// TODO: make next packet expect any excess
 		pending = pkt->expected_size - pkt->filled_size;
 		goto pending_known;
 	}
 	if (HTTP_HEADER_ONLY == msg->type) {
-		// Note: we only know it is header only
-		// if the buffer contains the full header
-		// thus we know no more data is needed.
+		// Note: we can only know it is header only
+		// when the buffer already contains the header.
 		pkt->expected_size = packet_get_header_size(pkt);
-		packet_mark_received(pkt, 0);
 		pending = 0;
 		goto pending_known;
 	}
 	if (HTTP_CONTENT_LENGTH == msg->type) {
-		// TODO: if we got extra data then push
-		// extra into message's buffer
-		// TODO: make next packet expect any excess
-		size_t msg_remaining = msg->claimed_size - msg->received_size;
-		size_t pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
-		if (msg_remaining < pkt_remaining) {
-			pending = msg_remaining;
-			goto pending_known;
-		}
-		pending = pkt_remaining;
+		pkt->expected_size = msg->claimed_size;
+		pending = msg->claimed_size - msg->received_size;
 		goto pending_known;
 	}
 
@@ -348,7 +338,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 	pending = pkt->buffer_capacity - pkt->filled_size;
 
 pending_known:
-	// Will we have room!?
+	// Expand buffer as needed
 	while (pending + pkt->filled_size > pkt->buffer_capacity) {
 		ssize_t new_size = packet_expand(pkt);
 		if (new_size < 0) {
@@ -356,6 +346,9 @@ pending_known:
 			return 0;
 		}
 	}
+	// Save excess data
+	if (pkt->expected_size != 0 && pkt->expected_size < pkt->filled_size)
+		packet_store_excess(pkt);
 	return pending;
 }
 
@@ -368,14 +361,14 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 
 	// Store excess data
 	if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
-		packet_store_spare(pkt, pkt->filled_size - pkt->expected_size);
+		packet_store_excess(pkt);
 }
 
 struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 {
 	struct http_packet_t *pkt = NULL;
 	uint8_t              *buf = NULL;
-	size_t const capacity = BUFFER_STEP * BUFFER_INIT_RATIO;
+	size_t const capacity = BUFFER_STEP;
 
 	assert(parent_msg != NULL);
 
@@ -406,7 +399,7 @@ void packet_free(struct http_packet_t *pkt)
 	free(pkt);
 }
 
-#define MAX_PACKET_SIZE (1 << (6 + 20)) // about 64MB
+#define MAX_PACKET_SIZE (1 << (6 + 20)) // 64MiB
 ssize_t packet_expand(struct http_packet_t *pkt)
 {
 	size_t cur_size = pkt->buffer_capacity;
