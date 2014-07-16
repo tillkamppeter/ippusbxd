@@ -82,7 +82,7 @@ cleanup_subconn:
 	return NULL;
 }
 
-static void start_daemon(uint32_t requested_port)
+static void start_daemon(uint32_t requested_port, int debug_mode)
 {
 	// Capture USB device
 	struct usb_sock_t *usb_sock = usb_open();
@@ -94,7 +94,6 @@ static void start_daemon(uint32_t requested_port)
 	if (tcp_socket == NULL)
 		goto cleanup_tcp;
 
-	// TODO: print port then fork
 	uint32_t real_port = tcp_port_number_get(tcp_socket);
 	if (requested_port != 0 && requested_port != real_port) {
 		ERR("Received port number did not match requested port number. "
@@ -102,6 +101,10 @@ static void start_daemon(uint32_t requested_port)
 		goto cleanup_tcp;
 	}
 	printf("%u\n", real_port);
+
+	// Lose connecction to caller
+	if (fork() > 0 && !debug_mode)
+		exit(0);
 
 	for (;;) {
 		struct service_thread_param *args = calloc(1, sizeof(*args));
@@ -149,10 +152,11 @@ int main(int argc, char *argv[])
 	int c;
 	long long port = 0;
 	int show_help = 0;
+	int debug_mode = 0;
 	setting_log_target = LOGGING_STDERR;
 
 	// TODO: support long options
-	while ((c = getopt(argc, argv, "hp:u:s:l")) != -1) {
+	while ((c = getopt(argc, argv, "hdp:u:s:l")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -178,6 +182,10 @@ int main(int argc, char *argv[])
 			// Redirect logging to syslog
 			setting_log_target = LOGGING_SYSLOG;
 			break;
+		case 'd':
+			// Redirect logging to syslog
+			debug_mode = 1;
+			break;
 		// TODO: support --syslog for more daemon like errors
 		}
 	}
@@ -196,6 +204,6 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	start_daemon((uint32_t)port);
+	start_daemon((uint32_t)port, debug_mode);
 	return 0;
 }
