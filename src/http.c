@@ -281,6 +281,7 @@ int packet_at_capacity(struct http_packet_t *pkt)
 // TODO: DO NOT USE INT for buffer sizes
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
+	size_t pending = 0;
 	// Determine message's size delimitation method
 	struct http_message_t *msg = pkt->parent_message;
 	if (HTTP_UNSET == msg->type ||
@@ -296,7 +297,8 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 			long long header_size = packet_get_header_size(pkt);
 			long long excess_size = pkt->filled_size - header_size;
 			packet_store_spare(pkt, excess_size);
-			return 0;
+			pending = 0;
+			goto pending_known;
 		}
 	}
 
@@ -306,15 +308,18 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 			ssize_t size = packet_find_chunked_size(pkt);
 			if (size <= 0) {
 				// Then read full buffer
-				if (pkt->expected_size > pkt->filled_size)
-					return pkt->buffer_capacity - pkt->filled_size;
+				if (pkt->expected_size > pkt->filled_size) {
+					pending = pkt->buffer_capacity - pkt->filled_size;
+					goto pending_known;
+				}
 				// TODO: store excess data
 			}
 			pkt->expected_size = size;
 		}
 
 		// TODO: make next packet expect any excess
-		return pkt->expected_size - pkt->filled_size;
+		pending = pkt->expected_size - pkt->filled_size;
+		goto pending_known;
 	}
 	if (HTTP_HEADER_ONLY == msg->type) {
 		// Note: we only know it is header only
@@ -322,7 +327,8 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 		// thus we know no more data is needed.
 		pkt->expected_size = packet_get_header_size(pkt);
 		packet_mark_received(pkt, 0);
-		return 0;
+		pending = 0;
+		goto pending_known;
 	}
 	if (HTTP_CONTENT_LENGTH == msg->type) {
 		// TODO: if we got extra data then push
@@ -330,13 +336,27 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 		// TODO: make next packet expect any excess
 		size_t msg_remaining = msg->claimed_size - msg->received_size;
 		size_t pkt_remaining = pkt->buffer_capacity - pkt->filled_size;
-		if (msg_remaining < pkt_remaining)
-			return msg_remaining;
-		return pkt_remaining;
+		if (msg_remaining < pkt_remaining) {
+			pending = msg_remaining;
+			goto pending_known;
+		}
+		pending = pkt_remaining;
+		goto pending_known;
 	}
 
 	// HTTP_UNKOWN or UNSET
-	return pkt->buffer_capacity - pkt->filled_size;
+	pending = pkt->buffer_capacity - pkt->filled_size;
+
+pending_known:
+	// Will we have room!?
+	while (pending + pkt->filled_size > pkt->buffer_capacity) {
+		ssize_t new_size = packet_expand(pkt);
+		if (new_size < 0) {
+			WARN("Failed to require space needed for message");
+			return 0;
+		}
+	}
+	return pending;
 }
 
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
