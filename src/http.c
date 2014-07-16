@@ -170,7 +170,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	return size + (size_end - pkt->buffer);
 }
 
-static long long packet_get_header_size(struct http_packet_t *pkt)
+static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 {
 	// Find header
 	for (size_t i = 0; i < pkt->filled_size; i++) {
@@ -293,9 +293,16 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 			// header.
 
 			// Save any non-header data we got
-			// TODO: Should these be long longs?
-			long long header_size = packet_get_header_size(pkt);
-			long long excess_size = pkt->filled_size - header_size;
+			ssize_t header_size = packet_get_header_size(pkt);
+			if (header_size < 0) {
+				ERR("Failed chunk header size search");
+				goto pending_known;
+			}
+			if ((size_t)header_size < pkt->filled_size) {
+				// Should not be possible
+				goto pending_known;
+			}
+			size_t excess_size = pkt->filled_size - header_size;
 			packet_store_spare(pkt, excess_size);
 			pending = 0;
 			goto pending_known;
