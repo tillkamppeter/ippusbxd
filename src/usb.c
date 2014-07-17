@@ -386,8 +386,16 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		if (read_size_raw >= INT_MAX)
 			goto cleanup;
 		int read_size = (int)read_size_raw;
-		NOTE("USB: Getting %d bytes", read_size);
+		// Ensure read_size is multiple of usb packets
+		read_size += (512 - (read_size % 512)) % 512;
+		if (pkt->buffer_capacity < pkt->filled_size + read_size) {
+			if (packet_expand(pkt) < 0) {
+				ERR("Failed to ensure room for usb pkt");
+				// TODO: exit
+			}
+		}
 
+		NOTE("USB: Getting %d bytes", read_size);
 		int gotten_size = 0;
 		int status = libusb_bulk_transfer(
 		                      conn->parent->printer,
@@ -402,8 +410,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		}
 		if (gotten_size == 0) {
 			// TODO: timeout in case printer crashed
-			if (max_timeouts-- < 0)
+			if (max_timeouts-- < 0) {
+				ERR("USB timedout, dropping data");
 				goto cleanup;
+			}
 		}
 
 		NOTE("USB: Got %d bytes", gotten_size);

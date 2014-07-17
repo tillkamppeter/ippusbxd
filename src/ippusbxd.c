@@ -58,7 +58,7 @@ static void *service_connection(void *arg_void)
 		}
 		message_free(client_msg);
 		client_msg = NULL;
-		NOTE("Client msg completed");
+		NOTE("Client msg completed\n");
 
 
 		// Server's responce
@@ -77,7 +77,7 @@ static void *service_connection(void *arg_void)
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
-		NOTE("Server msg completed");
+		NOTE("Server msg completed\n");
 
 cleanup_subconn:
 		if (client_msg != NULL)
