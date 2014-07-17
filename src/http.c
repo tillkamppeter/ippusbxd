@@ -357,8 +357,16 @@ pending_known:
 		}
 	}
 	// Save excess data
-	if (pkt->expected_size != 0 && pkt->expected_size < pkt->filled_size)
-		packet_store_excess(pkt);
+	if (pkt->expected_size) {
+		if (pkt->expected_size < pkt->filled_size) {
+			packet_store_excess(pkt);
+		}
+		if (pkt->expected_size == pkt->filled_size) {
+			pkt->is_completed = 1;
+			// TODO: abstract
+			// TODO: mark msg completed
+		}
+	}
 	return pending;
 }
 
@@ -374,9 +382,20 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 	struct http_message_t *msg = pkt->parent_message;
 	msg->received_size += received;
 
-	// Store excess data
-	if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
-		packet_store_excess(pkt);
+	if (msg->claimed_size && msg->received_size >= msg->claimed_size) {
+		msg->is_completed = 1;
+	}
+	if (pkt->expected_size) {
+		if (pkt->filled_size > pkt->expected_size) {
+			// Store excess data
+			packet_store_excess(pkt);
+			NOTE("Storing excess");
+		}
+		if (pkt->filled_size == pkt->expected_size) {
+			pkt->is_completed = 1;
+			NOTE("Marking packet completed");
+		}
+	}
 }
 
 struct http_packet_t *packet_new(struct http_message_t *parent_msg)

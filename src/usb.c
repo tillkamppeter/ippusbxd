@@ -395,7 +395,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			}
 		}
 
-		NOTE("USB: Getting %d bytes", read_size);
+		NOTE("USB: Getting %d bytes of %d", read_size, pkt->expected_size);
 		int gotten_size = 0;
 		int status = libusb_bulk_transfer(
 		                      conn->parent->printer,

@@ -37,6 +37,7 @@ static void *service_connection(void *arg_void)
 			struct http_packet_t *pkt;
 			pkt = tcp_packet_get(arg->tcp, client_msg);
 			if (pkt == NULL) {
+				NOTE("Got null packet from tcp");
 				if (arg->tcp->is_closed) {
 					NOTE("Clinet closed connection");
 					goto cleanup_subconn;
