@@ -327,9 +327,8 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 
 void usb_conn_release(struct usb_conn_t *conn)
 {
-
 	// Return usb interface to pool
-	uint32_t slot = ++conn->parent->num_avail;
+	uint32_t slot = conn->parent->num_avail++;
 	conn->parent->interface_pool[slot] = conn->interface_index;
 
 	// Release our interface lock
@@ -347,10 +346,11 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 	int timeout = 1000; // in milliseconds
 	size_t sent = 0;
 	size_t pending = pkt->filled_size;
-	size_t portions = (pkt->filled_size / 512) + 1;
+	size_t portions = pkt->filled_size / 512;
+	portions += (pkt->filled_size % 512) > 0 ? 1 : 0;
 	for (size_t i = 0; i < portions; i++) {
 		int to_send = 512;
-		if (pending <= 512)
+		if (pending < 512)
 			to_send = (int)pending;
 
 		int status = libusb_bulk_transfer(conn->parent->printer,
@@ -395,7 +395,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		                      &gotten_size, timeout);
 		if (status != 0 && status != LIBUSB_ERROR_TIMEOUT) {
 			ERR("bulk xfer failed with error code %d", status);
-			ERR("tried reading %ll bytes", read_size);
+			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
 		}
 		if (gotten_size == 0) {
@@ -404,7 +404,6 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		packet_mark_received(pkt, gotten_size);
 
 		read_size_raw = packet_pending_bytes(pkt);
-		// TODO: if header not found yet at capacity expand packet
 	}
 
 	return pkt;

@@ -23,17 +23,19 @@ static void *service_connection(void *arg_void)
 	// clasify priority
 	while (!arg->tcp->is_closed) {
 		struct usb_conn_t *usb = NULL;
+		struct http_message_t *server_msg = NULL;
+		struct http_message_t *client_msg = NULL;
 
 		// Client's request
-		struct http_message_t *msg = http_message_new();
-		if (msg == NULL) {
+		client_msg = http_message_new();
+		if (client_msg == NULL) {
 			ERR("Failed to create message");
 			break;
 		}
 
-		while (!msg->is_completed) {
+		while (!client_msg->is_completed) {
 			struct http_packet_t *pkt;
-			pkt = tcp_packet_get(arg->tcp, msg);
+			pkt = tcp_packet_get(arg->tcp, client_msg);
 			if (pkt == NULL)
 				break;
 			if (usb == NULL) {
@@ -49,17 +51,18 @@ static void *service_connection(void *arg_void)
 			usb_conn_packet_send(usb, pkt);
 			packet_free(pkt);
 		}
-		message_free(msg);
+		message_free(client_msg);
+		client_msg = NULL;
 
 		// Server's responce
-		msg = http_message_new();
-		if (msg == NULL) {
+		server_msg = http_message_new();
+		if (server_msg == NULL) {
 			ERR("Failed to create message");
 			goto cleanup_subconn;
 		}
-		while (!msg->is_completed) {
+		while (!server_msg->is_completed) {
 			struct http_packet_t *pkt;
-			pkt = usb_conn_packet_get(usb, msg);
+			pkt = usb_conn_packet_get(usb, server_msg);
 			if (pkt == NULL)
 				break;
 
@@ -69,8 +72,10 @@ static void *service_connection(void *arg_void)
 		}
 
 cleanup_subconn:
-		if (msg != NULL)
-			message_free(msg);
+		if (client_msg != NULL)
+			message_free(client_msg);
+		if (server_msg != NULL)
+			message_free(server_msg);
 		if (usb != NULL)
 			usb_conn_release(usb);
 	}
