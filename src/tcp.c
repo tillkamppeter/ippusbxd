@@ -50,8 +50,6 @@ struct tcp_sock_t *tcp_open(uint32_t port)
 		goto error;
 	}
 
-	
-
 	return this;
 
 error:
@@ -95,28 +93,42 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet for incoming tcp message");
-		goto error;
+		goto cleanup;
 	}
 
 	size_t want_size = packet_pending_bytes(pkt);
 	if (want_size == 0)
-		goto error;
+		goto cleanup;
 
 	while (want_size != 0 && !msg->is_completed) {
+		NOTE("TCP: Getting %d bytes", want_size);
 		uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
 		ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
 		if (gotten_size < 0) {
 			int errno_saved = errno;
 			ERR("recv failed with err %d:%s", errno_saved,
 				strerror(errno_saved));
-			goto error;
+			goto cleanup;
 		}
+		NOTE("TCP: Got %d bytes", gotten_size);
+		if (gotten_size == 0) {
+			tcp->is_closed = 1;
+			if (pkt->filled_size == 0) {
+				// Client closed TCP conn
+				goto cleanup;
+			} else {
+				break;
+			}
+		}
+
 		packet_mark_received(pkt, gotten_size);
 		want_size = packet_pending_bytes(pkt);
 	}
+
+	NOTE("TCP: Received %lu bytes", pkt->filled_size);
 	return pkt;	
 	 
-error:
+cleanup:
 	if (pkt != NULL)
 		packet_free(pkt);
 	return NULL;
@@ -125,7 +137,7 @@ error:
 void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
 	send(conn->sd, pkt->buffer, pkt->filled_size, 0);
-	NOTE("sent %lu bytes over tcp", pkt->filled_size);
+	NOTE("TCP: sent %lu bytes", pkt->filled_size);
 }
 
 

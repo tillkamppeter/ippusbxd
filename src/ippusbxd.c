@@ -36,8 +36,13 @@ static void *service_connection(void *arg_void)
 		while (!client_msg->is_completed) {
 			struct http_packet_t *pkt;
 			pkt = tcp_packet_get(arg->tcp, client_msg);
-			if (pkt == NULL)
+			if (pkt == NULL) {
+				if (arg->tcp->is_closed) {
+					NOTE("Clinet closed connection");
+					goto cleanup_subconn;
+				}
 				break;
+			}
 			if (usb == NULL) {
 				usb = usb_conn_aquire(arg->usb_sock, 1);
 				if (usb == NULL) {
@@ -53,6 +58,8 @@ static void *service_connection(void *arg_void)
 		}
 		message_free(client_msg);
 		client_msg = NULL;
+		NOTE("Client msg completed");
+
 
 		// Server's responce
 		server_msg = http_message_new();
@@ -70,6 +77,7 @@ static void *service_connection(void *arg_void)
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
+		NOTE("Server msg completed");
 
 cleanup_subconn:
 		if (client_msg != NULL)

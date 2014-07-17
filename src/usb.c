@@ -346,24 +346,24 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 	int timeout = 1000; // in milliseconds
 	size_t sent = 0;
 	size_t pending = pkt->filled_size;
-	size_t portions = pkt->filled_size / 512;
-	portions += (pkt->filled_size % 512) > 0 ? 1 : 0;
-	for (size_t i = 0; i < portions; i++) {
+	while (pending > 0) {
 		int to_send = 512;
 		if (pending < 512)
 			to_send = (int)pending;
 
+		NOTE("USB: want to send %d bytes", to_send);
 		int status = libusb_bulk_transfer(conn->parent->printer,
 		                                  conn->interface->endpoint_out,
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
-		pending -= to_send;
-		sent += to_send;
+		pending -= size_sent;
+		sent += size_sent;
+		NOTE("USB: sent %d bytes", size_sent);
 		// TODO: check status
 		if (status < 0)
-			ERR("usb data sending failed with status %d", status);
+			ERR("Usb send failed with status %d", status);
 	}
-	NOTE("sent %d bytes over usb\n", size_sent);
+	NOTE("USB: sent %d bytes in total", sent);
 }
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
@@ -375,16 +375,18 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	}
 
 	// File packet
-	const int timeout = 100; // in milliseconds
+	const int timeout = 1000; // in milliseconds
 	ssize_t read_size_raw = packet_pending_bytes(pkt);
 	if (read_size_raw <= 0)
 		goto cleanup;
 
 
+	int max_timeouts = 30;
 	while (read_size_raw > 0 && !msg->is_completed) {
 		if (read_size_raw >= INT_MAX)
 			goto cleanup;
 		int read_size = (int)read_size_raw;
+		NOTE("USB: Getting %d bytes", read_size);
 
 		int gotten_size = 0;
 		int status = libusb_bulk_transfer(
@@ -400,11 +402,15 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		}
 		if (gotten_size == 0) {
 			// TODO: timeout in case printer crashed
+			if (max_timeouts-- < 0)
+				goto cleanup;
 		}
-		packet_mark_received(pkt, gotten_size);
 
+		NOTE("USB: Got %d bytes", gotten_size);
+		packet_mark_received(pkt, gotten_size);
 		read_size_raw = packet_pending_bytes(pkt);
 	}
+	NOTE("USB: Received %d bytes of %d", pkt->filled_size, pkt->expected_size);
 
 	return pkt;
 

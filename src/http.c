@@ -309,11 +309,21 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 
 	if (HTTP_CHUNKED == msg->type) {
+		if (pkt->filled_size == 0) {
+			pending = pkt->buffer_capacity;
+			goto pending_known;
+		}
+
 		if (pkt->expected_size == 0) {
 			ssize_t size = packet_find_chunked_size(pkt);
 			if (size <= 0) {
-				ERR("Malformed chunk-transport http packer receivd");
-				exit(1);
+				ERR("=============================================");
+				ERR("Malformed chunk-transport http header receivd");
+				ERR("Have %d bytes", pkt->filled_size);
+				printf("%.*s\n", pkt->filled_size, pkt->buffer);
+				ERR("Malformed chunk-transport http header receivd");
+				ERR("=============================================");
+				size = 0;
 			}
 			pkt->expected_size = size;
 		}
@@ -355,6 +365,11 @@ pending_known:
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
 {
 	pkt->filled_size += received;
+
+	if (pkt->filled_size > pkt->buffer_capacity) {
+		ERR("Overflowed packet's buffer");
+		exit(1); // TODO: More orderly shutdown
+	}
 
 	struct http_message_t *msg = pkt->parent_message;
 	msg->received_size += received;
