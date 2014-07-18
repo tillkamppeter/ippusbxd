@@ -27,6 +27,7 @@ static void *service_connection(void *arg_void)
 		struct http_message_t *client_msg = NULL;
 
 		// Client's request
+		NOTE("Client msg starting");
 		client_msg = http_message_new();
 		if (client_msg == NULL) {
 			ERR("Failed to create message");
@@ -39,13 +40,14 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL) {
 				NOTE("Got null packet from tcp");
 				if (arg->tcp->is_closed) {
-					NOTE("Clinet closed connection");
+					NOTE("Client closed connection");
 					goto cleanup_subconn;
 				}
 				break;
 			}
 			if (usb == NULL) {
 				usb = usb_conn_aquire(arg->usb_sock, 1);
+				NOTE("%d: aquired usb conn", usb->interface_index);
 				if (usb == NULL) {
 					ERR("Failed to aquire usb interface");
 					packet_free(pkt);
@@ -53,7 +55,7 @@ static void *service_connection(void *arg_void)
 				}
 			}
 
-			NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
+			//NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
 			usb_conn_packet_send(usb, pkt);
 			packet_free(pkt);
 		}
@@ -63,6 +65,7 @@ static void *service_connection(void *arg_void)
 
 
 		// Server's responce
+		NOTE("%d: Server msg starting", usb->interface_index);
 		server_msg = http_message_new();
 		if (server_msg == NULL) {
 			ERR("Failed to create message");
@@ -74,7 +77,7 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL)
 				break;
 
-			//NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
+			NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}

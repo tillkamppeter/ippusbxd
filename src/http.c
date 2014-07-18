@@ -93,7 +93,9 @@ static void packet_store_excess(struct http_packet_t *pkt)
 		ERR("Do not call packet_store_excess() unless needed");
 		return;
 	}
+
 	size_t spare_size = pkt->filled_size - pkt->expected_size;
+	NOTE("HTTP: Storing %d bytes of excess", spare_size);
 
 	// Note: Mesaages's spare buffer should be empty!
 	assert(msg->spare_filled == 0);
@@ -287,6 +289,14 @@ static void packet_check_completion(struct http_packet_t *pkt)
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
 	size_t pending = 0;
+
+	// Cached Expected Size
+	if (pkt->expected_size > 0) {
+		if (pkt->expected_size > pkt->filled_size)
+			pending = pkt->expected_size - pkt->filled_size;
+		goto pending_known;
+	}
+
 	// Determine message's size delimitation method
 	struct http_message_t *msg = pkt->parent_message;
 	if (HTTP_UNSET == msg->type) {
@@ -381,7 +391,6 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 	if (pkt->expected_size && pkt->filled_size > pkt->expected_size) {
 		// Store excess data
 		packet_store_excess(pkt);
-		NOTE("Storing excess");
 	}
 }
 
