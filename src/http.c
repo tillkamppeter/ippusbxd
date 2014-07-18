@@ -275,14 +275,6 @@ do_ret:
 	return type;
 }
 
-// TODO: move this into the packet expander
-int packet_at_capacity(struct http_packet_t *pkt)
-{
-	// Libusb requires atleast one usb packet's worth of free memory
-	int USB_PACKET_SIZE = 512;
-	return (pkt->buffer_capacity - USB_PACKET_SIZE) <= pkt->filled_size;
-}
-
 void packet_check_completion(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
