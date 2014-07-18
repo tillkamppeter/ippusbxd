@@ -275,7 +275,7 @@ do_ret:
 	return type;
 }
 
-void packet_check_completion(struct http_packet_t *pkt)
+static void packet_check_completion(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
 	if (msg->claimed_size && msg->received_size >= msg->claimed_size)
