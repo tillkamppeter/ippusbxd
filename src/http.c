@@ -283,6 +283,15 @@ int packet_at_capacity(struct http_packet_t *pkt)
 	return (pkt->buffer_capacity - USB_PACKET_SIZE) <= pkt->filled_size;
 }
 
+void packet_check_completion(struct http_packet_t *pkt)
+{
+	struct http_message_t *msg = pkt->parent_message;
+	if (msg->claimed_size && msg->received_size >= msg->claimed_size)
+		msg->is_completed = 1;
+	if (pkt->expected_size && pkt->filled_size >= pkt->expected_size)
+		pkt->is_completed = 1;
+}
+
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
 	size_t pending = 0;
@@ -320,7 +329,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				ERR("=============================================");
 				ERR("Malformed chunk-transport http header receivd");
 				ERR("Have %d bytes", pkt->filled_size);
-				printf("%.*s\n", pkt->filled_size, pkt->buffer);
+				printf("%.*s\n", (int)pkt->filled_size, pkt->buffer);
 				ERR("Malformed chunk-transport http header receivd");
 				ERR("=============================================");
 				size = 0;
@@ -348,6 +357,8 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 	pending = pkt->buffer_capacity - pkt->filled_size;
 
 pending_known:
+	packet_check_completion(pkt);
+
 	// Expand buffer as needed
 	while (pending + pkt->filled_size > pkt->buffer_capacity) {
 		ssize_t new_size = packet_expand(pkt);
@@ -356,45 +367,29 @@ pending_known:
 			return 0;
 		}
 	}
+
 	// Save excess data
-	if (pkt->expected_size) {
-		if (pkt->expected_size < pkt->filled_size) {
-			packet_store_excess(pkt);
-		}
-		if (pkt->expected_size == pkt->filled_size) {
-			pkt->is_completed = 1;
-			// TODO: abstract
-			// TODO: mark msg completed
-		}
-	}
+	if (pkt->expected_size && pkt->expected_size < pkt->filled_size)
+		packet_store_excess(pkt);
 	return pending;
 }
 
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
 {
+	struct http_message_t *msg = pkt->parent_message;
+	msg->received_size += received;
 	pkt->filled_size += received;
+	packet_check_completion(pkt);
 
 	if (pkt->filled_size > pkt->buffer_capacity) {
 		ERR("Overflowed packet's buffer");
 		exit(1); // TODO: More orderly shutdown
 	}
 
-	struct http_message_t *msg = pkt->parent_message;
-	msg->received_size += received;
-
-	if (msg->claimed_size && msg->received_size >= msg->claimed_size) {
-		msg->is_completed = 1;
-	}
-	if (pkt->expected_size) {
-		if (pkt->filled_size > pkt->expected_size) {
-			// Store excess data
-			packet_store_excess(pkt);
-			NOTE("Storing excess");
-		}
-		if (pkt->filled_size == pkt->expected_size) {
-			pkt->is_completed = 1;
-			NOTE("Marking packet completed");
-		}
+	if (pkt->expected_size && pkt->filled_size > pkt->expected_size) {
+		// Store excess data
+		packet_store_excess(pkt);
+		NOTE("Storing excess");
 	}
 }
 

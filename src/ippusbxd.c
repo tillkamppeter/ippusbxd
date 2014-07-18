@@ -59,7 +59,7 @@ static void *service_connection(void *arg_void)
 		}
 		message_free(client_msg);
 		client_msg = NULL;
-		NOTE("Client msg completed\n");
+		NOTE("%d: Client msg completed\n", usb->interface_index);
 
 
 		// Server's responce
@@ -78,7 +78,7 @@ static void *service_connection(void *arg_void)
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
-		NOTE("Server msg completed\n");
+		NOTE("%d: Server msg completed\n", usb->interface_index);
 
 cleanup_subconn:
 		if (client_msg != NULL)
