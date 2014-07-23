@@ -329,6 +329,8 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				// Should not happen
 				goto pending_known;
 			}
+
+			NOTE("Chunked header size is %ld bytes", header_size);
 			pkt->expected_size = header_size;
 			msg->claimed_size = 0;
 			pending = 0;

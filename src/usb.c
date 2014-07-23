@@ -448,6 +448,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		if (read_size_raw >= INT_MAX)
 			goto cleanup;
 		int read_size = (int)read_size_raw;
+
 		// Ensure read_size is multiple of usb packets
 		read_size += (512 - (read_size % 512)) % 512;
 		if (pkt->buffer_capacity < pkt->filled_size + read_size) {
@@ -492,7 +493,8 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		packet_mark_received(pkt, gotten_size);
 		read_size_raw = packet_pending_bytes(pkt);
 	}
-	NOTE("USB: Received %d bytes of %d", pkt->filled_size, pkt->expected_size);
+	NOTE("USB: Received %d bytes of %d with type %d",
+			pkt->filled_size, pkt->expected_size, msg->type);
 
 	return pkt;
 
