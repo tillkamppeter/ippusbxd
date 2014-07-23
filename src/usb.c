@@ -1,6 +1,8 @@
+#define  _XOPEN_SOURCE 600
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <time.h>
 
 #include <libusb.h>
 
@@ -485,7 +487,11 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 					goto cleanup;
 				}
 
-				// TODO: do sleep
+				// Sleep for tenth of a second
+				struct timespec sleep_dur;
+				sleep_dur.tv_sec = 0;
+				sleep_dur.tv_nsec = 100000000;
+				nanosleep(&sleep_dur, NULL);
 			}
 		}
 
