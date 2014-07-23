@@ -112,6 +112,7 @@ static void packet_store_excess(struct http_packet_t *pkt)
 	}
 
 	size_t spare_size = pkt->filled_size - pkt->expected_size;
+	size_t non_spare = pkt->expected_size;
 	NOTE("HTTP: Storing %d bytes of excess", spare_size);
 
 	// Note: Mesaages's spare buffer should be empty!
@@ -120,7 +121,6 @@ static void packet_store_excess(struct http_packet_t *pkt)
 	// Note: Packets cannot have more spare data than they have data.
 	assert(pkt->filled_size >= spare_size);
 
-	size_t non_spare = pkt->filled_size - spare_size;
 
 	// Note: Packets cannot have more
 	// than BUFFER_STEP of spare data
@@ -139,10 +139,10 @@ static void packet_store_excess(struct http_packet_t *pkt)
 	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
 
 	msg->spare_filled = spare_size;
-	pkt->filled_size -= spare_size;
+	pkt->filled_size = pkt->expected_size;
 }
 
-// Warning: this functon should be reviewed indepth.
+// Warning: this functon should be reviewed in-depth.
 // Copying memory is a fantastic place to find exploits
 static void packet_load_spare(struct http_packet_t *pkt)
 {
@@ -152,7 +152,8 @@ static void packet_load_spare(struct http_packet_t *pkt)
 
 	size_t spare_avail = msg->spare_filled;
 	size_t buffer_open = pkt->buffer_capacity - pkt->filled_size;
-	assert(spare_avail <= buffer_open); // TODO: make this runtime error
+	// TODO: make packet adopt msg's existing buffer
+	assert(spare_avail <= buffer_open);
 
 	memcpy(pkt->buffer + pkt->filled_size,
 	       msg->spare_buffer, spare_avail);
@@ -189,7 +190,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	uint8_t original_char = *size_end;
 	*size_end = '\0';
 	size_t size = strtol((char *)pkt->buffer, NULL, 16);
-	NOTE("%s", pkt->buffer);
+	NOTE("Chunk size raw: %s", pkt->buffer);
 	*size_end = original_char;
 
 	// Chunked transport sends a zero size
@@ -200,7 +201,9 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	}
 
 	size_t header_size = size_end - pkt->buffer;
-	return size + header_size;
+	size_t chunk_size = size + header_size;
+	NOTE("Chunk size: %lu", chunk_size);
+	return chunk_size;
 }
 
 static ssize_t packet_get_header_size(struct http_packet_t *pkt)
@@ -304,7 +307,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
 	size_t pending = 0;
 
-	// Cached Expected Size
+	// Check Cache
 	if (pkt->expected_size > 0) {
 		if (pkt->expected_size > pkt->filled_size)
 			pending = pkt->expected_size - pkt->filled_size;
@@ -398,7 +401,7 @@ pending_known:
 	}
 
 	// Save excess data
-	if (pkt->expected_size && pkt->expected_size < pkt->filled_size)
+	if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
 		packet_store_excess(pkt);
 	return pending;
 }
