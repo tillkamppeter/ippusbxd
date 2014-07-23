@@ -235,8 +235,15 @@ found_device:
 		usb->interface_pool[i] = i;
 	}
 
+	// Stale lock
+	int status_lock = sem_init(&usb->num_staled_lock, 0, 1);
+	if (status_lock != 0) {
+		ERR("Failed to create num_staled lock");
+		goto error;
+	}
+
 	// High priority lock
-	int status_lock = sem_init(&usb->pool_high_priority_lock, 0, 1);
+	status_lock = sem_init(&usb->pool_high_priority_lock, 0, 1);
 	if (status_lock != 0) {
 		ERR("Failed to create low priority pool lock");
 		goto error;
@@ -283,10 +290,58 @@ void usb_close(struct usb_sock_t *usb)
 
 	sem_destroy(&usb->pool_high_priority_lock);
 	sem_destroy(&usb->pool_low_priority_lock);
+	sem_destroy(&usb->num_staled_lock);
 	free(usb->interfaces);
 	free(usb->interface_pool);
 	free(usb);
 	return;
+}
+
+
+static void usb_conn_mark_staled(struct usb_conn_t *conn)
+{
+	if (conn->is_staled)
+		return;
+
+	struct usb_sock_t *usb = conn->parent;
+
+	sem_wait(&usb->num_staled_lock);
+	{
+		usb->num_staled++;
+	}
+	sem_post(&usb->num_staled_lock);
+
+	conn->is_staled = 1;
+}
+
+static void usb_conn_mark_moving(struct usb_conn_t *conn)
+{
+	if (!conn->is_staled)
+		return;
+
+	struct usb_sock_t *usb = conn->parent;
+
+	sem_wait(&usb->num_staled_lock);
+	{
+		usb->num_staled--;
+	}
+	sem_post(&usb->num_staled_lock);
+
+	conn->is_staled = 0;
+}
+
+static int usb_all_conns_staled(struct usb_sock_t *usb)
+{
+	int staled;
+
+	sem_wait(&usb->num_staled_lock);
+	{
+		// TODO: use pool lock
+		staled = usb->num_staled == usb->num_taken;
+	}
+	sem_post(&usb->num_staled_lock);
+
+	return staled;
 }
 
 struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
@@ -320,29 +375,26 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 	conn->parent = usb;
 	conn->is_high_priority = used_high_priority;
 
-	for (uint32_t i = 0; i < usb->num_avail; i++) {
-		NOTE("%u", usb->interface_pool[i]);
-	}
-	conn->interface_index = usb->interface_pool[--usb->num_avail];
-	for (uint32_t i = 0; i < usb->num_avail; i++) {
-		NOTE("%u", usb->interface_pool[i]);
-	}
-
+	usb->num_taken++;
+	uint32_t slot = --usb->num_avail;
+	conn->interface_index = usb->interface_pool[slot];
 	conn->interface = usb->interfaces + conn->interface_index;
 	return conn;
 }
 
 void usb_conn_release(struct usb_conn_t *conn)
 {
+	struct usb_sock_t *usb = conn->parent;
 	// Return usb interface to pool
-	uint32_t slot = conn->parent->num_avail++;
-	conn->parent->interface_pool[slot] = conn->interface_index;
+	usb->num_taken--;
+	uint32_t slot = usb->num_avail++;
+	usb->interface_pool[slot] = conn->interface_index;
 
 	// Release our interface lock
 	if (conn->is_high_priority)
-		sem_post(&conn->parent->pool_high_priority_lock);
+		sem_post(&usb->pool_high_priority_lock);
 	else
-		sem_post(&conn->parent->pool_low_priority_lock);
+		sem_post(&usb->pool_low_priority_lock);
 
 	free(conn);
 }
@@ -391,7 +443,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		goto cleanup;
 
 
-	int max_timeouts = 30;
+	int times_staled = 0;
 	while (read_size_raw > 0 && !msg->is_completed) {
 		if (read_size_raw >= INT_MAX)
 			goto cleanup;
@@ -418,11 +470,21 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
 		}
-		if (gotten_size == 0) {
-			// TODO: timeout in case printer crashed
-			if (max_timeouts-- < 0) {
-				ERR("USB timedout, dropping data");
-				goto cleanup;
+		if (gotten_size > 0) {
+			times_staled = 0;
+			usb_conn_mark_moving(conn);
+		} else {
+			times_staled++;
+			if (times_staled > CONN_STALE_THRESHHOLD) {
+				usb_conn_mark_staled(conn);
+
+				if (usb_all_conns_staled(conn->parent) &&
+				    times_staled > PRINTER_CRASH_TIMEOUT) {
+					ERR("USB timedout, dropping data");
+					goto cleanup;
+				}
+
+				// TODO: do sleep
 			}
 		}
 
