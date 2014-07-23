@@ -320,7 +320,14 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 	conn->parent = usb;
 	conn->is_high_priority = used_high_priority;
 
+	for (uint32_t i = 0; i < usb->num_avail; i++) {
+		NOTE("%u", usb->interface_pool[i]);
+	}
 	conn->interface_index = usb->interface_pool[--usb->num_avail];
+	for (uint32_t i = 0; i < usb->num_avail; i++) {
+		NOTE("%u", usb->interface_pool[i]);
+	}
+
 	conn->interface = usb->interfaces + conn->interface_index;
 	return conn;
 }
@@ -368,6 +375,9 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
 {
+	if (msg->is_completed)
+		return NULL;
+
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet for incoming usb message");

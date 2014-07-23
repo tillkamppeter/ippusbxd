@@ -39,6 +39,23 @@ void message_free(struct http_message_t *msg)
 	free(msg);
 }
 
+static void packet_check_completion(struct http_packet_t *pkt)
+{
+	struct http_message_t *msg = pkt->parent_message;
+	// Msg full
+	if (msg->claimed_size && msg->received_size >= msg->claimed_size)
+		msg->is_completed = 1;
+
+	// Pkt full
+	if (pkt->expected_size && pkt->filled_size >= pkt->expected_size)
+		pkt->is_completed = 1;
+
+	// Pkt at capacity
+	if (pkt->filled_size == pkt->buffer_capacity) {
+		pkt->is_completed = 1;
+		msg->is_completed = 1;
+	}
+}
 
 static int doesMatch(const char *matcher, size_t matcher_len,
                      const uint8_t *key, size_t key_len)
@@ -161,27 +178,38 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 		}
 	}
 
-	if (size_end == NULL)
+	if (size_end == NULL) {
+		NOTE("failed to find chunk mini-header so far");
 		return -1;
+	}
+
+
 
 	// Temporary stringification for strtol()
 	uint8_t original_char = *size_end;
 	*size_end = '\0';
 	size_t size = strtol((char *)pkt->buffer, NULL, 16);
+	NOTE("%s", pkt->buffer);
 	*size_end = original_char;
 
 	// Chunked transport sends a zero size
 	// chunk to mark end of message
 	if (size == 0) {
-		puts("Found end chunked packet");
+		NOTE("Found end chunked packet");
 		pkt->parent_message->is_completed = 1;
 	}
 
-	return size + (size_end - pkt->buffer);
+	size_t header_size = size_end - pkt->buffer;
+	return size + header_size;
 }
 
 static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 {
+	/* RFC2616 recomends we match newline on \n despite full
+	 * complience requires the message to use only \r\n
+	 * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
+	 */
+
 	// Find header
 	for (size_t i = 0; i < pkt->filled_size; i++) {
 		// two \r\n pairs
@@ -228,11 +256,6 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 	 * All cases require the packat to contain the full header.
 	 */
 
-	/* RFC2616 recomends we match newline on \n despite full
-	 * complience requires the message to use only \r\n
-	 * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
-	 */
-
 	ssize_t header_size = packet_get_header_size(pkt);
 	if (header_size < 0) {
 		// We don't have the header yet
@@ -277,15 +300,6 @@ do_ret:
 	return type;
 }
 
-static void packet_check_completion(struct http_packet_t *pkt)
-{
-	struct http_message_t *msg = pkt->parent_message;
-	if (msg->claimed_size && msg->received_size >= msg->claimed_size)
-		msg->is_completed = 1;
-	if (pkt->expected_size && pkt->filled_size >= pkt->expected_size)
-		pkt->is_completed = 1;
-}
-
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
 	size_t pending = 0;
@@ -297,14 +311,14 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 		goto pending_known;
 	}
 
-	// Determine message's size delimitation method
 	struct http_message_t *msg = pkt->parent_message;
+
 	if (HTTP_UNSET == msg->type) {
 		msg->type = packet_find_type(pkt);
 
 		if (HTTP_CHUNKED == msg->type) {
 			// Note: this was the packet with the
-			// header.
+			// header of our chunked message.
 
 			// Save any non-header data we got
 			ssize_t header_size = packet_get_header_size(pkt);
@@ -313,6 +327,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				goto pending_known;
 			}
 			pkt->expected_size = header_size;
+			msg->claimed_size = 0;
 			pending = 0;
 			goto pending_known;
 		}
@@ -321,15 +336,18 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 	if (HTTP_CHUNKED == msg->type) {
 		if (pkt->filled_size == 0) {
+			// Grab chunk's mini-header
 			pending = pkt->buffer_capacity;
 			goto pending_known;
 		}
 
 		if (pkt->expected_size == 0) {
+			// Check chunk's mini-header
 			ssize_t size = packet_find_chunked_size(pkt);
 			if (size <= 0) {
 				ERR("=============================================");
 				ERR("Malformed chunk-transport http header receivd");
+				ERR("Missing chunk's mini-headers in first data");
 				ERR("Have %d bytes", pkt->filled_size);
 				printf("%.*s\n", (int)pkt->filled_size, pkt->buffer);
 				ERR("Malformed chunk-transport http header receivd");
@@ -337,6 +355,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				size = 0;
 			}
 			pkt->expected_size = size;
+			msg->claimed_size = 0;
 		}
 
 		pending = pkt->expected_size - pkt->filled_size;
@@ -346,10 +365,14 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 		// Note: we can only know it is header only
 		// when the buffer already contains the header.
 		pkt->expected_size = packet_get_header_size(pkt);
+		msg->claimed_size = pkt->expected_size;
 		pending = 0;
 		goto pending_known;
 	}
 	if (HTTP_CONTENT_LENGTH == msg->type) {
+		// Note: find_header() has already
+		// filled msg's claimed_size
+		msg->claimed_size = msg->claimed_size;
 		pkt->expected_size = msg->claimed_size;
 		pending = msg->claimed_size - msg->received_size;
 		goto pending_known;
@@ -363,9 +386,13 @@ pending_known:
 
 	// Expand buffer as needed
 	while (pending + pkt->filled_size > pkt->buffer_capacity) {
-		ssize_t new_size = packet_expand(pkt);
-		if (new_size < 0) {
-			WARN("Failed to require space needed for message");
+		ssize_t size_added = packet_expand(pkt);
+		if (size_added < 0) {
+			WARN("packet at max allowed size");
+			return 0;
+		}
+		if (size_added == 0) {
+			ERR("Failed to expand packet");
 			return 0;
 		}
 	}
@@ -379,8 +406,15 @@ pending_known:
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
 {
 	struct http_message_t *msg = pkt->parent_message;
+	NOTE("HTTP: marking %lu bytes received", received);
+	NOTE("HTTP: msg has received %lu bytes", msg->received_size);
 	msg->received_size += received;
+	NOTE("HTTP: msg has received %lu bytes", msg->received_size);
+
+	NOTE("HTTP: pkt has received %lu bytes", pkt->filled_size);
 	pkt->filled_size += received;
+	NOTE("HTTP: pkt has received %lu bytes", pkt->filled_size);
+
 	packet_check_completion(pkt);
 
 	if (pkt->filled_size > pkt->buffer_capacity) {
@@ -415,6 +449,7 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	pkt->buffer = buf;
 	pkt->buffer_capacity = capacity;
 	pkt->filled_size = 0;
+	pkt->expected_size = 0;
 	pkt->parent_message = parent_msg;
 
 	// Claim old spare data
@@ -429,7 +464,7 @@ void packet_free(struct http_packet_t *pkt)
 	free(pkt);
 }
 
-#define MAX_PACKET_SIZE (1 << (6 + 20)) // 64MiB
+#define MAX_PACKET_SIZE (1 << 26) // 64MiB
 ssize_t packet_expand(struct http_packet_t *pkt)
 {
 	size_t cur_size = pkt->buffer_capacity;
@@ -442,7 +477,7 @@ ssize_t packet_expand(struct http_packet_t *pkt)
 	if (new_buf == NULL) {
 		// If realloc fails the original buffer is still valid
 		WARN("Failed to expand packet");
-		return -1;
+		return 0;
 	}
 	pkt->buffer = new_buf;
 	return new_size - cur_size;

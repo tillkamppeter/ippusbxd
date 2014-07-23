@@ -81,13 +81,13 @@ static void *service_connection(void *arg_void)
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
 		}
-		NOTE("%d: Server msg completed\n", usb->interface_index);
 
 cleanup_subconn:
 		if (client_msg != NULL)
 			message_free(client_msg);
 		if (server_msg != NULL)
 			message_free(server_msg);
+		NOTE("%d: Server msg completed\n", usb->interface_index);
 		if (usb != NULL)
 			usb_conn_release(usb);
 	}
@@ -120,7 +120,7 @@ static void start_daemon(uint32_t requested_port, int debug_mode)
 	printf("%u\n", real_port);
 
 	// Lose connection to caller
-	if (fork() > 0 && !debug_mode)
+	if (!debug_mode && fork() > 0)
 		exit(0);
 
 	for (;;) {
