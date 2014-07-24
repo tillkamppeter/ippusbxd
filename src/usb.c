@@ -266,6 +266,7 @@ error_config:
 error:
 	if (device_list != NULL)
 		libusb_free_device_list(device_list, 1);
+error_usbinit:
 	if (usb != NULL) {
 		if (usb->context != NULL)
 			libusb_exit(usb->context);
@@ -275,7 +276,6 @@ error:
 			free(usb->interface_pool);
 		free(usb);
 	}
-error_usbinit:
 	return NULL;
 }
 
