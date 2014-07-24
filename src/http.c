@@ -357,8 +357,10 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				printf("%.*s\n", (int)pkt->filled_size, pkt->buffer);
 				ERR("Malformed chunk-transport http header receivd");
 				ERR("=============================================");
-				size = 0;
+				pending = 0;
+				goto pending_known;
 			}
+
 			pkt->expected_size = size;
 			msg->claimed_size = 0;
 		}
@@ -411,14 +413,11 @@ pending_known:
 void packet_mark_received(struct http_packet_t *pkt, size_t received)
 {
 	struct http_message_t *msg = pkt->parent_message;
-	NOTE("HTTP: marking %lu bytes received", received);
-	NOTE("HTTP: msg has received %lu bytes", msg->received_size);
 	msg->received_size += received;
-	NOTE("HTTP: msg has received %lu bytes", msg->received_size);
 
-	NOTE("HTTP: pkt has received %lu bytes", pkt->filled_size);
 	pkt->filled_size += received;
-	NOTE("HTTP: pkt has received %lu bytes", pkt->filled_size);
+	NOTE("HTTP: got %lu bytes so: pkt has %lu bytes, msg has %lu bytes",
+		received, pkt->filled_size, msg->received_size);
 
 	packet_check_completion(pkt);
 

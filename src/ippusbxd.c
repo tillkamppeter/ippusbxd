@@ -76,9 +76,10 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL)
 				break;
 
-			NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
+			NOTE("Pkt from usb: \n%.*s", (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
+			NOTE("%d: Server pkt done\n", usb->interface_index);
 		}
 		NOTE("%d: Server msg completed\n", usb->interface_index);
 

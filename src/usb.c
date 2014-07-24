@@ -477,6 +477,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
 		}
+
 		if (gotten_size > 0) {
 			times_staled = 0;
 			usb_conn_mark_moving(conn);
