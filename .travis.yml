@@ -23,5 +23,5 @@ addons:
     notification_email: danieru.dressler@gmail.com
     build_command_prepend:
     build_command: make
-    branch_pattern: coverity_check
+    branch_pattern: master
 
