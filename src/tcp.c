@@ -93,12 +93,13 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet for incoming tcp message");
-		goto cleanup;
+		goto error;
 	}
 
+	// TODO: fix when packet was pre-filled by msg buffer
 	size_t want_size = packet_pending_bytes(pkt);
 	if (want_size == 0)
-		goto cleanup;
+		goto error;
 
 	while (want_size != 0 && !msg->is_completed) {
 		NOTE("TCP: Getting %d bytes", want_size);
@@ -108,14 +109,14 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 			int errno_saved = errno;
 			ERR("recv failed with err %d:%s", errno_saved,
 				strerror(errno_saved));
-			goto cleanup;
+			goto error;
 		}
 		NOTE("TCP: Got %d bytes", gotten_size);
 		if (gotten_size == 0) {
 			tcp->is_closed = 1;
 			if (pkt->filled_size == 0) {
 				// Client closed TCP conn
-				goto cleanup;
+				goto error;
 			} else {
 				break;
 			}
@@ -128,7 +129,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 	NOTE("TCP: Received %lu bytes", pkt->filled_size);
 	return pkt;	
 	 
-cleanup:
+error:
 	if (pkt != NULL)
 		packet_free(pkt);
 	return NULL;
