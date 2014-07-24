@@ -142,7 +142,11 @@ found_device:
 	status = libusb_get_config_descriptor(printer_device,
 	                                      (uint8_t)selected_config,
 	                                      &config);
-	// TODO: check status
+	if (status != 0 || config == NULL) {
+		ERR("Failed to aquire config descriptor");
+		goto error;
+	}
+
 	int interfs = selected_ipp_interface_count;
 	for (uint8_t interf_num = 0;
 	     interf_num < config->bNumInterfaces;
