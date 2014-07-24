@@ -174,7 +174,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 
 	// Find end of size string
 	uint8_t *size_end = NULL;
-	uint8_t *header_end = NULL;
+	uint8_t *miniheader_end = NULL;
 	size_t max = pkt->filled_size;
 	for (size_t i = 0; i < pkt->filled_size; i++) {
 		uint8_t *buf = pkt->buffer;
@@ -185,7 +185,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 				buf[i] == '\n')   // lf
 			) {
 				size_end = buf + i + 1;
-				header_end = size_end;
+				miniheader_end = size_end;
 				break;
 			}
 
@@ -193,7 +193,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 			if (buf[i] == '\n') // LF
 			{
 				size_end = buf + i;
-				header_end = size_end;
+				miniheader_end = size_end;
 				break;
 			}
 			
@@ -205,24 +205,24 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 			}
 		}
 
-		if (header_end == NULL) {
+		if (miniheader_end == NULL) {
 			if (i + 1 < max && (
 				buf[i] == '\r' && // CR
 				buf[i] == '\n')   // LF
 			) {
-				header_end = size_end;
+				miniheader_end = buf + i + 1;
 				break;
 			}
 
 			if (buf[i] == '\n') // LF
 			{
-				header_end = size_end;
+				miniheader_end = buf + i;
 				break;
 			}
 		}
 	}
 
-	if (header_end == NULL) {
+	if (miniheader_end == NULL) {
 		// NOTE: knowing just the size field
 		// is not enough since the extensions
 		// are not included in the size
@@ -246,8 +246,8 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 		pkt->parent_message->is_completed = 1;
 	}
 
-	size_t header_size = size_end - pkt->buffer;
-	size_t chunk_size = size + header_size;
+	size_t miniheader_size = miniheader_end - pkt->buffer + 1;
+	size_t chunk_size = size + miniheader_size;
 	NOTE("Chunk size: %lu", chunk_size);
 	return chunk_size;
 }

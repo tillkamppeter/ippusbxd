@@ -79,7 +79,7 @@ static void *service_connection(void *arg_void)
 			NOTE("Pkt from usb: \n%.*s", (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
-			NOTE("%d: Server pkt done\n", usb->interface_index);
+			NOTE("%d: Server pkt done", usb->interface_index);
 		}
 		NOTE("%d: Server msg completed\n", usb->interface_index);
 
