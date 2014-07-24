@@ -164,22 +164,68 @@ static void packet_load_spare(struct http_packet_t *pkt)
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 {
-	// TODO: scan to the end of the chunk's
-	// trailer and extensions
+	// TODO: support trailers
+	// NOTE:
+	// chunks can have trailers which are
+	// tacked on http header fields. 
+	// NOTE:
+	// chunks may also have extensions.
+	// No one uses or supports them.
 
 	// Find end of size string
 	uint8_t *size_end = NULL;
+	uint8_t *header_end = NULL;
+	size_t max = pkt->filled_size;
 	for (size_t i = 0; i < pkt->filled_size; i++) {
 		uint8_t *buf = pkt->buffer;
-		if (buf[i] == ';'  || // chunked extension
-		    buf[i] == '\r' || // CR
-		    buf[i] == '\n') { // Lf
-			size_end = buf + i;
-			break;
+		if (size_end == NULL) {
+			// No extension
+			if (i + 1 < max && (
+				buf[i] == '\r' && // cr
+				buf[i] == '\n')   // lf
+			) {
+				size_end = buf + i + 1;
+				header_end = size_end;
+				break;
+			}
+
+			// No extension
+			if (buf[i] == '\n') // LF
+			{
+				size_end = buf + i;
+				header_end = size_end;
+				break;
+			}
+			
+			// Has extensions
+			if (buf[i] == ';')
+			{
+				size_end = buf + i;
+				continue;
+			}
+		}
+
+		if (header_end == NULL) {
+			if (i + 1 < max && (
+				buf[i] == '\r' && // CR
+				buf[i] == '\n')   // LF
+			) {
+				header_end = size_end;
+				break;
+			}
+
+			if (buf[i] == '\n') // LF
+			{
+				header_end = size_end;
+				break;
+			}
 		}
 	}
 
-	if (size_end == NULL) {
+	if (header_end == NULL) {
+		// NOTE: knowing just the size field
+		// is not enough since the extensions
+		// are not included in the size
 		NOTE("failed to find chunk mini-header so far");
 		return -1;
 	}
