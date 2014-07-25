@@ -371,12 +371,16 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 			// Save any non-header data we got
 			ssize_t header_size = packet_get_header_size(pkt);
-			if (header_size < 0 || (size_t)header_size < pkt->filled_size) {
+			if (header_size < 0 ||
+			    header_size > pkt->filled_size) {
 				// Should not happen
+				ERR("HTTP: Could not find header twice");
+				exit(-1);
 				goto pending_known;
 			}
 
-			NOTE("Chunked header size is %ld bytes", header_size);
+			NOTE("HTTP: Chunked header size is %ld bytes",
+				header_size);
 			pkt->expected_size = header_size;
 			msg->claimed_size = 0;
 			pending = 0;
