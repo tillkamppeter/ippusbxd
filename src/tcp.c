@@ -96,10 +96,9 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 		goto error;
 	}
 
-	// TODO: fix when packet was pre-filled by msg buffer
 	size_t want_size = packet_pending_bytes(pkt);
 	if (want_size == 0)
-		goto error;
+		return pkt;
 
 	while (want_size != 0 && !msg->is_completed) {
 		NOTE("TCP: Getting %d bytes", want_size);
