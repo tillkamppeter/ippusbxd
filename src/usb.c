@@ -457,12 +457,11 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 
 		// Ensure read_size is multiple of usb packets
 		read_size += (512 - (read_size % 512)) % 512;
-		if (pkt->buffer_capacity < pkt->filled_size + read_size) {
-			if (packet_expand(pkt) < 0) {
-				ERR("Failed to ensure room for usb pkt");
-				// TODO: exit
-			}
-		}
+
+		// Expand buffer if needed
+		if (pkt->buffer_capacity < pkt->filled_size + read_size)
+			if (packet_expand(pkt) < 0)
+				ERR_AND_EXIT("Failed to ensure room for usb pkt");
 
 		NOTE("USB: Getting %d bytes of %d", read_size, pkt->expected_size);
 		int gotten_size = 0;
@@ -491,13 +490,13 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 					ERR("USB timedout, dropping data");
 					goto cleanup;
 				}
-
-				// Sleep for tenth of a second
-				struct timespec sleep_dur;
-				sleep_dur.tv_sec = 0;
-				sleep_dur.tv_nsec = 100000000;
-				nanosleep(&sleep_dur, NULL);
 			}
+
+			// Sleep for tenth of a second
+			struct timespec sleep_dur;
+			sleep_dur.tv_sec = 0;
+			sleep_dur.tv_nsec = 100000000;
+			nanosleep(&sleep_dur, NULL);
 		}
 
 		NOTE("USB: Got %d bytes", gotten_size);

@@ -371,13 +371,11 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 			// Save any non-header data we got
 			ssize_t header_size = packet_get_header_size(pkt);
+
+			// Sanity check
 			if (header_size < 0 ||
-			    header_size > pkt->filled_size) {
-				// Should not happen
-				ERR("HTTP: Could not find header twice");
-				exit(-1);
-				goto pending_known;
-			}
+			    header_size > pkt->filled_size)
+				ERR_AND_EXIT("HTTP: Could not find header twice");
 
 			NOTE("HTTP: Chunked header size is %ld bytes",
 				header_size);
@@ -471,10 +469,8 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 
 	packet_check_completion(pkt);
 
-	if (pkt->filled_size > pkt->buffer_capacity) {
-		ERR("Overflowed packet's buffer");
-		exit(1); // TODO: More orderly shutdown
-	}
+	if (pkt->filled_size > pkt->buffer_capacity)
+		ERR_AND_EXIT("Overflowed packet's buffer");
 
 	if (pkt->expected_size && pkt->filled_size > pkt->expected_size) {
 		// Store excess data

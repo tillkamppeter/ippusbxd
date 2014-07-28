@@ -142,10 +142,8 @@ void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 	while (remaining > 0) {
 		ssize_t sent = send(conn->sd, pkt->buffer + total,
 		                    remaining, 0);
-		if (sent < 0) {
-			ERR("Failed to sent data over TCP");
-			exit(-1); // TODO: unify exits
-		}
+		if (sent < 0)
+			ERR_AND_EXIT("Failed to sent data over TCP");
 
 		total += sent;
 		remaining -= sent;

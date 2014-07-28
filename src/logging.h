@@ -26,6 +26,8 @@
 #define CONF_1(msg) BASE_LOG("<%d>Standard Conformance Failure: " msg "\n", TID())
 #define CONF_2(msg, ...) BASE_LOG("<%d>Standard Conformance Failure: " msg "\n", TID(), __VA_ARGS__)
 
+#define ERR_AND_EXIT(...) do { ERR(__VA_ARGS__); exit(-1);} while (0)
+
 enum log_target {
 	LOGGING_STDERR,
 	LOGGING_SYSLOG
