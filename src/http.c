@@ -156,22 +156,18 @@ static void packet_take_spare(struct http_packet_t *pkt)
 	if (pkt->filled_size > 0)
 		ERR_AND_EXIT("pkt should be empty when loading msg spare");
 
-	// Swap Packet and Message's buffers
-	size_t pkt_size = pkt->buffer_capacity;
-	uint8_t *pkt_buffer = pkt->buffer;
-
+	// Take message's buffer
 	size_t msg_size = msg->spare_capacity;
 	size_t msg_filled = msg->spare_filled;
 	uint8_t *msg_buffer = msg->spare_buffer;
 
-	// Do swap
 	pkt->buffer_capacity = msg_size;
 	pkt->filled_size = msg_filled;
 	pkt->buffer = msg_buffer;
 
-	msg->spare_capacity = pkt_size;
+	msg->spare_capacity = 0;
 	msg->spare_filled = 0;
-	msg->spare_buffer = pkt_buffer;
+	msg->spare_buffer = NULL;
 }
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
@@ -497,25 +493,30 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	size_t const capacity = BUFFER_STEP;
 
 	assert(parent_msg != NULL);
-
-	buf = calloc(capacity, sizeof(*buf));
 	pkt = calloc(1, sizeof(*pkt));
-	if (buf == NULL || pkt == NULL) {
-		ERR("failed to alloc space for packet's buffer or space for packet");
-		free(pkt);
-		free(buf);
+	if (pkt == NULL) {
+		ERR("failed to alloc packet");
 		return NULL;
 	}
-	
-	// Assemble packet
-	pkt->buffer = buf;
-	pkt->buffer_capacity = capacity;
-	pkt->filled_size = 0;
-	pkt->expected_size = 0;
 	pkt->parent_message = parent_msg;
+	pkt->expected_size = 0;
 
-	// Claim old spare data
+	// Claim any spare data from prior packets
 	packet_take_spare(pkt);
+
+	if (pkt->buffer == NULL) {
+		buf = calloc(capacity, sizeof(*buf));
+		if (buf == NULL) {
+			ERR("failed to alloc space for packet's buffer or space for packet");
+			free(pkt);
+			return NULL;
+		}
+
+		// Assemble packet
+		pkt->buffer = buf;
+		pkt->buffer_capacity = capacity;
+		pkt->filled_size = 0;
+	}
 
 	return pkt;
 }
