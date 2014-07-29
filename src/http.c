@@ -155,7 +155,6 @@ static void packet_take_spare(struct http_packet_t *pkt)
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 {
-	// TODO: support CRLF in body end
 	// TODO: support trailers
 	// NOTE:
 	// chunks can have trailers which are
@@ -224,6 +223,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 
 
 
+	// TODO: make copy instead of mangling
 	// Temporary stringification for strtol()
 	uint8_t original_char = *size_end;
 	*size_end = '\0';
@@ -231,11 +231,11 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	NOTE("Chunk size raw: %s", pkt->buffer);
 	*size_end = original_char;
 
-	// Chunked transport sends a zero size
-	// chunk to mark end of message
+	// zero size chunk marks end of message
 	if (size == 0) {
 		NOTE("Found end chunked packet");
 		pkt->parent_message->is_completed = 1;
+		pkt->is_completed = 1;
 	}
 
 	size_t miniheader_size = miniheader_end - pkt->buffer + 1;
