@@ -173,8 +173,8 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 		if (size_end == NULL) {
 			// No extension
 			if (i + 1 < max && (
-				buf[i] == '\r' && // cr
-				buf[i] == '\n')   // lf
+				buf[i] == '\r' &&  // CR
+				buf[i + 1] == '\n')// LF
 			) {
 				size_end = buf + i + 1;
 				miniheader_end = size_end;
@@ -199,8 +199,8 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 
 		if (miniheader_end == NULL) {
 			if (i + 1 < max && (
-				buf[i] == '\r' && // CR
-				buf[i] == '\n')   // LF
+				buf[i] == '\r' &&  // CR
+				buf[i + 1] == '\n')// LF
 			) {
 				miniheader_end = buf + i + 1;
 				break;
@@ -239,8 +239,11 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	}
 
 	size_t miniheader_size = miniheader_end - pkt->buffer + 1;
-	size_t chunk_size = size + miniheader_size;
-	NOTE("Chunk size: %lu", chunk_size);
+
+	size_t chunk_size = size; // Chunk body
+	chunk_size += miniheader_size; // Mini-header
+	chunk_size += 2; // Trailing CRLF
+	NOTE("HTTP: Chunk size: %lu", chunk_size);
 	return chunk_size;
 }
 
