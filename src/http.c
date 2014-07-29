@@ -19,16 +19,9 @@ struct http_message_t *http_message_new()
 		return NULL;
 	}
 
-
-	size_t capacity = BUFFER_STEP;
-	msg->spare_buffer = calloc(capacity, sizeof(*(msg->spare_buffer)));
-	if (msg->spare_buffer == NULL) {
-		ERR("failed to alloc buffer for http message");
-		free(msg);
-		return NULL;
-	}
-
-	msg->spare_capacity = capacity;
+	msg->spare_capacity = 0;
+	msg->spare_filled = 0;
+	msg->spare_buffer = NULL;
 
 	return msg;
 }
@@ -99,51 +92,38 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 	return val;
 }
 
-// Warning: this functon should be reviewed indepth.
-// Copying memory is a fantastic place to find exploits
-// TODO: make this more agreesive with exiting on broken assumptions
-// TODO: Expand msg spare buffer as needed
 static void packet_store_excess(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
-	if (pkt->expected_size >= pkt->filled_size) {
-		ERR("Do not call packet_store_excess() unless needed");
-		return;
-	}
+	if (msg->spare_buffer != NULL)
+		ERR_AND_EXIT("Do not store excess to non-empty packet");
+
+	if (pkt->expected_size >= pkt->filled_size)
+		ERR_AND_EXIT("Do not call packet_store_excess() unless needed");
 
 	size_t spare_size = pkt->filled_size - pkt->expected_size;
 	size_t non_spare = pkt->expected_size;
 	NOTE("HTTP: Storing %d bytes of excess", spare_size);
 
-	// Note: Mesaages's spare buffer should be empty!
-	assert(msg->spare_filled == 0);
+	// Align to BUFFER_STEP
+	size_t needed_size = 0;
+	needed_size += spare_size / BUFFER_STEP;
+	needed_size += (spare_size % BUFFER_STEP) > 0 ? BUFFER_STEP : 0;
 
-	// Note: Packets cannot have more spare data than they have data.
-	assert(pkt->filled_size >= spare_size);
+	if (msg->spare_buffer == NULL) {
+		uint8_t *buffer = calloc(1, needed_size);
+		if (buffer == NULL)
+			ERR_AND_EXIT("Failed to alloc msg spare buffer");
 
-
-	// Note: Packets cannot have more
-	// than BUFFER_STEP of spare data
-	assert(spare_size <= BUFFER_STEP);
-
-	// TODO: expand msg's buffer
-	if (spare_size > (msg->spare_capacity - msg->spare_filled)) {
-		WARN("spare data exceeds message's buffer");
-		exit(0);
+		msg->spare_buffer = buffer;
 	}
 
-	// Note: We cannot copy past packet's buffer
-	assert(pkt->buffer_capacity >= (non_spare + spare_size));
-
-	// Warn: data can be lost if msg's buffer is too small
 	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
 
+	msg->spare_capacity = needed_size;
 	msg->spare_filled = spare_size;
-	pkt->filled_size = pkt->expected_size;
 }
 
-// Warning: this functon should be reviewed in-depth.
-// Copying memory is a fantastic place to find exploits
 static void packet_take_spare(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
