@@ -47,6 +47,9 @@ static void packet_check_completion(struct http_packet_t *pkt)
 	if (pkt->filled_size == pkt->buffer_capacity) {
 		pkt->is_completed = 1;
 		msg->is_completed = 1;
+	} else if (pkt->filled_size > pkt->buffer_capacity) {
+		// Santiy check
+		ERR_AND_EXIT("Overflowed packet buffer");
 	}
 }
 
@@ -152,6 +155,7 @@ static void packet_take_spare(struct http_packet_t *pkt)
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 {
+	// TODO: support CRLF in body end
 	// TODO: support trailers
 	// NOTE:
 	// chunks can have trailers which are
@@ -339,14 +343,9 @@ do_ret:
 
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
-	size_t pending = 0;
-
 	// Check Cache
-	if (pkt->expected_size > 0) {
-		if (pkt->expected_size > pkt->filled_size)
-			pending = pkt->expected_size - pkt->filled_size;
+	if (pkt->expected_size > 0)
 		goto pending_known;
-	}
 
 	struct http_message_t *msg = pkt->parent_message;
 
@@ -369,7 +368,6 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				header_size);
 			pkt->expected_size = header_size;
 			msg->claimed_size = 0;
-			pending = 0;
 			goto pending_known;
 		}
 	}
@@ -378,7 +376,6 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 	if (HTTP_CHUNKED == msg->type) {
 		if (pkt->filled_size == 0) {
 			// Grab chunk's mini-header
-			pending = pkt->buffer_capacity;
 			goto pending_known;
 		}
 
@@ -393,7 +390,6 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				printf("%.*s\n", (int)pkt->filled_size, pkt->buffer);
 				ERR("Malformed chunk-transport http header receivd");
 				ERR("=============================================");
-				pending = 0;
 				goto pending_known;
 			}
 
@@ -401,7 +397,6 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 			msg->claimed_size = 0;
 		}
 
-		pending = pkt->expected_size - pkt->filled_size;
 		goto pending_known;
 	}
 	if (HTTP_HEADER_ONLY == msg->type) {
@@ -409,22 +404,29 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 		// when the buffer already contains the header.
 		pkt->expected_size = packet_get_header_size(pkt);
 		msg->claimed_size = pkt->expected_size;
-		pending = 0;
 		goto pending_known;
 	}
 	if (HTTP_CONTENT_LENGTH == msg->type) {
-		// Note: find_header() has already
+		// Note: find_header() has
 		// filled msg's claimed_size
 		msg->claimed_size = msg->claimed_size;
 		pkt->expected_size = msg->claimed_size;
-		pending = msg->claimed_size - msg->received_size;
 		goto pending_known;
 	}
 
-	// HTTP_UNKOWN or UNSET
-	pending = pkt->buffer_capacity - pkt->filled_size;
-
 pending_known:
+
+	// Save excess data
+	if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
+		packet_store_excess(pkt);
+
+	size_t expected = pkt->expected_size;
+	if (expected == 0)
+		expected = msg->claimed_size;
+	if (expected == 0)
+		expected = pkt->buffer_capacity;
+	size_t pending = expected - pkt->filled_size;
+
 	packet_check_completion(pkt);
 
 	// Expand buffer as needed
@@ -440,9 +442,6 @@ pending_known:
 		}
 	}
 
-	// Save excess data
-	if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
-		packet_store_excess(pkt);
 	return pending;
 }
 
