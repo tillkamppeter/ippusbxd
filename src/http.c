@@ -511,11 +511,10 @@ void packet_free(struct http_packet_t *pkt)
 ssize_t packet_expand(struct http_packet_t *pkt)
 {
 	size_t cur_size = pkt->buffer_capacity;
-	if (cur_size >= MAX_PACKET_SIZE) {
-		return -1;
-	}
-
 	size_t new_size = cur_size * 2;
+	if (new_size > MAX_PACKET_SIZE)
+		return -1;
+
 	uint8_t *new_buf = realloc(pkt->buffer, new_size);
 	if (new_buf == NULL) {
 		// If realloc fails the original buffer is still valid
