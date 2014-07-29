@@ -144,22 +144,34 @@ static void packet_store_excess(struct http_packet_t *pkt)
 
 // Warning: this functon should be reviewed in-depth.
 // Copying memory is a fantastic place to find exploits
-static void packet_load_spare(struct http_packet_t *pkt)
+static void packet_take_spare(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
 	if (msg->spare_filled == 0)
 		return;
 
-	size_t spare_avail = msg->spare_filled;
-	size_t buffer_open = pkt->buffer_capacity - pkt->filled_size;
-	// TODO: make packet adopt msg's existing buffer
-	assert(spare_avail <= buffer_open);
+	if (msg->spare_buffer == NULL)
+		return;
 
-	memcpy(pkt->buffer + pkt->filled_size,
-	       msg->spare_buffer, spare_avail);
+	if (pkt->filled_size > 0)
+		ERR_AND_EXIT("pkt should be empty when loading msg spare");
 
+	// Swap Packet and Message's buffers
+	size_t pkt_size = pkt->buffer_capacity;
+	uint8_t *pkt_buffer = pkt->buffer;
+
+	size_t msg_size = msg->spare_capacity;
+	size_t msg_filled = msg->spare_filled;
+	uint8_t *msg_buffer = msg->spare_buffer;
+
+	// Do swap
+	pkt->buffer_capacity = msg_size;
+	pkt->filled_size = msg_filled;
+	pkt->buffer = msg_buffer;
+
+	msg->spare_capacity = pkt_size;
 	msg->spare_filled = 0;
-	pkt->filled_size += spare_avail;
+	msg->spare_buffer = pkt_buffer;
 }
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
@@ -374,7 +386,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 			// Sanity check
 			if (header_size < 0 ||
-			    header_size > pkt->filled_size)
+			    (size_t)header_size > pkt->filled_size)
 				ERR_AND_EXIT("HTTP: Could not find header twice");
 
 			NOTE("HTTP: Chunked header size is %ld bytes",
@@ -503,7 +515,7 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
 	pkt->parent_message = parent_msg;
 
 	// Claim old spare data
-	packet_load_spare(pkt);
+	packet_take_spare(pkt);
 
 	return pkt;
 }
