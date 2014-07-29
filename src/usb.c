@@ -424,9 +424,11 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		pending -= size_sent;
 		sent += size_sent;
 		NOTE("USB: sent %d bytes", size_sent);
-		// TODO: check status
+		if (status == LIBUSB_ERROR_NO_DEVICE)
+			ERR_AND_EXIT("Printer has been disconnected");
 		if (status < 0)
 			ERR("Usb send failed with status %d", status);
+
 	}
 	NOTE("USB: sent %d bytes in total", sent);
 }
@@ -471,6 +473,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		                      pkt->buffer + pkt->filled_size,
 		                      read_size,
 		                      &gotten_size, timeout);
+
+		if (status == LIBUSB_ERROR_NO_DEVICE)
+			ERR_AND_EXIT("Printer has been disconnected");
+
 		if (status != 0 && status != LIBUSB_ERROR_TIMEOUT) {
 			ERR("bulk xfer failed with error code %d", status);
 			ERR("tried reading %d bytes", read_size);
