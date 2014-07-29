@@ -425,8 +425,13 @@ pending_known:
 		expected = msg->claimed_size;
 	if (expected == 0)
 		expected = pkt->buffer_capacity;
-	size_t pending = expected - pkt->filled_size;
 
+	// Sanity check
+	if (expected < pkt->filled_size)
+		ERR_AND_EXIT("Expected cannot be larger than filled");
+
+	size_t pending = expected - pkt->filled_size;
+	
 	packet_check_completion(pkt);
 
 	// Expand buffer as needed
