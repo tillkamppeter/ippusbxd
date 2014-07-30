@@ -18,7 +18,8 @@ struct service_thread_param {
 };
 static void *service_connection(void *arg_void)
 {
-	struct service_thread_param *arg = (struct service_thread_param *)arg_void;
+	struct service_thread_param *arg =
+		(struct service_thread_param *)arg_void;
 
 	// clasify priority
 	while (!arg->tcp->is_closed) {
@@ -51,7 +52,8 @@ static void *service_connection(void *arg_void)
 					packet_free(pkt);
 					goto cleanup_subconn;
 				}
-				NOTE("%d: aquired usb conn", usb->interface_index);
+				NOTE("Interface #%d: aquired usb conn",
+						usb->interface_index);
 			}
 
 			//NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
@@ -60,11 +62,13 @@ static void *service_connection(void *arg_void)
 		}
 		message_free(client_msg);
 		client_msg = NULL;
-		NOTE("%d: Client msg completed\n", usb->interface_index);
+		NOTE("Interface #%d: Client msg completed\n",
+				usb->interface_index);
 
 
 		// Server's responce
-		NOTE("%d: Server msg starting", usb->interface_index);
+		NOTE("Interface #%d: Server msg starting",
+				usb->interface_index);
 		server_msg = http_message_new();
 		if (server_msg == NULL) {
 			ERR("Failed to create message");
@@ -76,12 +80,15 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL)
 				break;
 
-			NOTE("Pkt from usb: \n%.*s", (int)pkt->filled_size, pkt->buffer);
+			NOTE("Pkt from usb: \n%.*s",
+					(int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
-			NOTE("%d: Server pkt done", usb->interface_index);
+			NOTE("Interface #%d: Server pkt done",
+					usb->interface_index);
 		}
-		NOTE("%d: Server msg completed\n", usb->interface_index);
+		NOTE("Interface #%d: Server msg completed\n",
+				usb->interface_index);
 
 cleanup_subconn:
 		if (client_msg != NULL)
