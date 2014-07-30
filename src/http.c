@@ -36,8 +36,13 @@ static void packet_check_completion(struct http_packet_t *pkt)
 {
 	struct http_message_t *msg = pkt->parent_message;
 	// Msg full
-	if (msg->claimed_size && msg->received_size >= msg->claimed_size)
+	if (msg->claimed_size && msg->received_size >= msg->claimed_size) {
 		msg->is_completed = 1;
+
+		// Sanity check
+		if (msg->spare_filled > 0)
+			ERR_AND_EXIT("Msg spare not empty upon completion");
+	}
 
 	// Pkt full
 	if (pkt->expected_size && pkt->filled_size >= pkt->expected_size)
