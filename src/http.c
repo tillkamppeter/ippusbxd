@@ -122,6 +122,7 @@ static void packet_store_excess(struct http_packet_t *pkt)
 	}
 
 	memcpy(msg->spare_buffer, pkt->buffer + non_spare, spare_size);
+	pkt->filled_size = non_spare;
 
 	msg->spare_capacity = needed_size;
 	msg->spare_filled = spare_size;
