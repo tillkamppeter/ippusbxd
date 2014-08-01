@@ -176,7 +176,6 @@ int main(int argc, char *argv[])
 {
 	int c;
 	long long port = 0;
-	int show_help = 0;
 	int debug_mode = 0;
 	g_options.log_destination = LOGGING_STDERR;
 
@@ -184,7 +183,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case '?':
 		case 'h':
-			show_help = 1;
+			g_options.help_mode = 1;
 			break;
 		case 'p':
 			// Request specific port
@@ -213,7 +212,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (show_help) {
+	if (g_options.help_mode) {
 		printf(
 		"Usage: %s -v <vendorid> -m <productid> -p <port>\n"
 		"Options:\n"
