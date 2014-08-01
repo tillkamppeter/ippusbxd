@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 project(ippusbxd)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=c99 -Wall -Wextra -pedantic -pedantic-errors")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -o2 -std=c99 -Wall -Wextra -pedantic -pedantic-errors")
 
 
 # Compiler specific configuration
