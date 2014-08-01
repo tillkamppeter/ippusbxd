@@ -129,7 +129,7 @@ static void start_daemon()
 	printf("%u\n", real_port);
 
 	// Lose connection to caller
-	if (!g_options.debug_mode && fork() > 0)
+	if (!g_options.nofork_mode && fork() > 0)
 		exit(0);
 
 	for (;;) {
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 	int c;
 	g_options.log_destination = LOGGING_STDERR;
 
-	while ((c = getopt(argc, argv, "hdp:u:s:l")) != -1) {
+	while ((c = getopt(argc, argv, "nhdp:u:s:l")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -205,14 +205,14 @@ int main(int argc, char *argv[])
 			// [u]sb device to bind with
 			break;
 		case 'l':
-			// Redirect logging to syslog
 			g_options.log_destination = LOGGING_SYSLOG;
 			break;
 		case 'd':
-			// Redirect logging to syslog
-			g_options.debug_mode = 1;
+			g_options.nofork_mode = 1;
 			g_options.verbose_mode = 1;
 			break;
+		case 'n':
+			g_options.nofork_mode = 1;
 		}
 	}
 
@@ -226,7 +226,8 @@ int main(int argc, char *argv[])
 		"  -s <serial>  Serial number of desired printer\n"
 		"  -p <portnum> Port number to bind against\n"
 		"  -l           Redirect logging to syslog\n"
-		"  -d           Debug mode for verbose output\n"
+		"  -d           Debug mode for verbose output and no fork\n"
+		"  -n           No fork mode\n"
 		, argv[0]);
 		return 0;
 	}

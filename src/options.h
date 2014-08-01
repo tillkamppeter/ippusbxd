@@ -12,8 +12,8 @@ struct options {
 
 	// Behavior
 	int help_mode;
-	int debug_mode;
 	int verbose_mode;
+	int nofork_mode;
 
 	// Printer indentity
 	char *serial_num;
