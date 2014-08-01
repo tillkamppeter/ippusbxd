@@ -6,8 +6,11 @@
 #include "logging.h"
 #include "options.h"
 
-void BASE_LOG(const char *fmt, ...)
+void BASE_LOG(enum log_level level, const char *fmt, ...)
 {
+	if (!g_options.verbose_mode && level != LOGGING_ERROR)
+		return;
+
 	va_list arg;
 	va_start(arg, fmt);
 	if (g_options.log_destination == LOGGING_STDERR)

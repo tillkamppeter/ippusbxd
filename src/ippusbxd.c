@@ -211,6 +211,7 @@ int main(int argc, char *argv[])
 		case 'd':
 			// Redirect logging to syslog
 			g_options.debug_mode = 1;
+			g_options.verbose_mode = 1;
 			break;
 		}
 	}
