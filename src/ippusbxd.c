@@ -107,7 +107,7 @@ cleanup_subconn:
 	return NULL;
 }
 
-static void start_daemon(uint32_t requested_port)
+static void start_daemon()
 {
 	// Capture USB device
 	struct usb_sock_t *usb_sock = usb_open();
@@ -115,14 +115,15 @@ static void start_daemon(uint32_t requested_port)
 		goto cleanup_usb;
 
 	// Capture a socket
-	struct tcp_sock_t *tcp_socket = tcp_open(requested_port);
+	uint32_t desired_port = g_options.desired_port;
+	struct tcp_sock_t *tcp_socket = tcp_open(desired_port);
 	if (tcp_socket == NULL)
 		goto cleanup_tcp;
 
 	uint32_t real_port = tcp_port_number_get(tcp_socket);
-	if (requested_port != 0 && requested_port != real_port) {
-		ERR("Received port number did not match requested port number. "
-		    "The requested port number may be too high.");
+	if (desired_port != 0 && desired_port != real_port) {
+		ERR("Received port number did not match requested port number."
+		    " The requested port number may be too high.");
 		goto cleanup_tcp;
 	}
 	printf("%u\n", real_port);
@@ -175,7 +176,6 @@ cleanup_usb:
 int main(int argc, char *argv[])
 {
 	int c;
-	long long port = 0;
 	g_options.log_destination = LOGGING_STDERR;
 
 	while ((c = getopt(argc, argv, "hdp:u:s:l")) != -1) {
@@ -185,6 +185,8 @@ int main(int argc, char *argv[])
 			g_options.help_mode = 1;
 			break;
 		case 'p':
+		{
+			long long port = 0;
 			// Request specific port
 			port = atoi(optarg);
 			if (port < 0) {
@@ -196,7 +198,9 @@ int main(int argc, char *argv[])
 				    "but not negative", UINT_MAX);
 				return 2;
 			}
+			g_options.desired_port = port;
 			break;
+		}
 		case 'u':
 			// [u]sb device to bind with
 			break;
@@ -226,6 +230,6 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	start_daemon((uint32_t)port);
+	start_daemon();
 	return 0;
 }
