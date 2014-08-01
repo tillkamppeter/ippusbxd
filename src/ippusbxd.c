@@ -41,7 +41,7 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL) {
 				NOTE("Got null packet from tcp");
 				if (arg->tcp->is_closed) {
-					NOTE("Client closed connection");
+					NOTE("Client closed connection\n");
 				}
 				goto cleanup_subconn;
 			}

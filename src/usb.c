@@ -453,7 +453,9 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	// File packet
 	const int timeout = 1000; // in milliseconds
 	ssize_t read_size_raw = packet_pending_bytes(pkt);
-	if (read_size_raw <= 0)
+	if (read_size_raw == 0)
+		return pkt;
+	else if (read_size_raw < 0)
 		goto cleanup;
 
 
