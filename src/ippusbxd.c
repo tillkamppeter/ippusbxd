@@ -107,7 +107,7 @@ cleanup_subconn:
 	return NULL;
 }
 
-static void start_daemon(uint32_t requested_port, int debug_mode)
+static void start_daemon(uint32_t requested_port)
 {
 	// Capture USB device
 	struct usb_sock_t *usb_sock = usb_open();
@@ -128,7 +128,7 @@ static void start_daemon(uint32_t requested_port, int debug_mode)
 	printf("%u\n", real_port);
 
 	// Lose connection to caller
-	if (!debug_mode && fork() > 0)
+	if (!g_options.debug_mode && fork() > 0)
 		exit(0);
 
 	for (;;) {
@@ -176,7 +176,6 @@ int main(int argc, char *argv[])
 {
 	int c;
 	long long port = 0;
-	int debug_mode = 0;
 	g_options.log_destination = LOGGING_STDERR;
 
 	while ((c = getopt(argc, argv, "hdp:u:s:l")) != -1) {
@@ -207,7 +206,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			// Redirect logging to syslog
-			debug_mode = 1;
+			g_options.debug_mode = 1;
 			break;
 		}
 	}
@@ -227,6 +226,6 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	start_daemon((uint32_t)port, debug_mode);
+	start_daemon((uint32_t)port);
 	return 0;
 }
