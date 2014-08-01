@@ -90,7 +90,9 @@ struct usb_sock_t *usb_open()
 			status = libusb_get_config_descriptor(candidate,
 			                                      config_num,
 			                                      &config);
-			// TODO: check status
+			if (status < 0)
+				ERR_AND_EXIT("USB: didn't get config desc %s",
+					libusb_error_name(status));
 
 			int interface_count = count_ippoverusb_interfaces(config);
 			libusb_free_config_descriptor(config);
