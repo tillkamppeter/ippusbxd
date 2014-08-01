@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <pthread.h>
 
+#include "options.h"
 #include "logging.h"
 #include "http.h"
 #include "tcp.h"
@@ -177,7 +178,7 @@ int main(int argc, char *argv[])
 	long long port = 0;
 	int show_help = 0;
 	int debug_mode = 0;
-	setting_log_target = LOGGING_STDERR;
+	g_options.log_destination = LOGGING_STDERR;
 
 	while ((c = getopt(argc, argv, "hdp:u:s:l")) != -1) {
 		switch (c) {
@@ -203,7 +204,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			// Redirect logging to syslog
-			setting_log_target = LOGGING_SYSLOG;
+			g_options.log_destination = LOGGING_SYSLOG;
 			break;
 		case 'd':
 			// Redirect logging to syslog

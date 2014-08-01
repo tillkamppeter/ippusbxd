@@ -28,12 +28,5 @@
 
 #define ERR_AND_EXIT(...) do { ERR(__VA_ARGS__); exit(-1);} while (0)
 
-enum log_target {
-	LOGGING_STDERR,
-	LOGGING_SYSLOG
-};
-
-extern enum log_target setting_log_target;
-
 void BASE_LOG(const char *, ...);
 
