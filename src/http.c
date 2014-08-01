@@ -255,6 +255,9 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 
 static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 {
+	if (pkt->header_size != 0)
+		goto found;
+
 	/* RFC2616 recomends we match newline on \n despite full
 	 * complience requires the message to use only \r\n
 	 * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
@@ -268,18 +271,23 @@ static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 		    '\n' == pkt->buffer[i + 1] &&
 		    '\r' == pkt->buffer[i + 2] &&
 		    '\n' == pkt->buffer[i + 3]) {
-				return i + 4;
+				pkt->header_size = i + 4;
+				goto found;
 		}
 
 		// two \n pairs
 		if ((i + 1) < pkt->filled_size &&
 		    '\n' == pkt->buffer[i] &&
 		    '\n' == pkt->buffer[i + 1]) {
-				return i + 2;
+				pkt->header_size = i + 2;
+				goto found;
 		}
 	}
 
 	return -1;
+
+found:
+	return pkt->header_size;
 }
 
 enum http_request_t packet_find_type(struct http_packet_t *pkt)

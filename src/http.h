@@ -26,13 +26,12 @@ struct http_message_t {
 };
 
 struct http_packet_t {
+	// Cache
+	size_t header_size;
 
-	// size of filled content
 	size_t filled_size;
 	size_t expected_size;
 
-	// max capacity of buffer
-	// can be exapanded
 	size_t buffer_capacity;
 	uint8_t *buffer;
 
