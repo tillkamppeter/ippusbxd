@@ -1,6 +1,8 @@
+#define  _XOPEN_SOURCE 600
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <time.h>
 
 #include <libusb.h>
 
@@ -88,7 +90,9 @@ struct usb_sock_t *usb_open()
 			status = libusb_get_config_descriptor(candidate,
 			                                      config_num,
 			                                      &config);
-			// TODO: check status
+			if (status < 0)
+				ERR_AND_EXIT("USB: didn't get config desc %s",
+					libusb_error_name(status));
 
 			int interface_count = count_ippoverusb_interfaces(config);
 			libusb_free_config_descriptor(config);
@@ -140,7 +144,11 @@ found_device:
 	status = libusb_get_config_descriptor(printer_device,
 	                                      (uint8_t)selected_config,
 	                                      &config);
-	// TODO: check status
+	if (status != 0 || config == NULL) {
+		ERR("Failed to aquire config descriptor");
+		goto error;
+	}
+
 	int interfs = selected_ipp_interface_count;
 	for (uint8_t interf_num = 0;
 	     interf_num < config->bNumInterfaces;
@@ -235,8 +243,15 @@ found_device:
 		usb->interface_pool[i] = i;
 	}
 
+	// Stale lock
+	int status_lock = sem_init(&usb->num_staled_lock, 0, 1);
+	if (status_lock != 0) {
+		ERR("Failed to create num_staled lock");
+		goto error;
+	}
+
 	// High priority lock
-	int status_lock = sem_init(&usb->pool_high_priority_lock, 0, 1);
+	status_lock = sem_init(&usb->pool_high_priority_lock, 0, 1);
 	if (status_lock != 0) {
 		ERR("Failed to create low priority pool lock");
 		goto error;
@@ -257,6 +272,7 @@ error_config:
 error:
 	if (device_list != NULL)
 		libusb_free_device_list(device_list, 1);
+error_usbinit:
 	if (usb != NULL) {
 		if (usb->context != NULL)
 			libusb_exit(usb->context);
@@ -266,7 +282,6 @@ error:
 			free(usb->interface_pool);
 		free(usb);
 	}
-error_usbinit:
 	return NULL;
 }
 
@@ -283,10 +298,58 @@ void usb_close(struct usb_sock_t *usb)
 
 	sem_destroy(&usb->pool_high_priority_lock);
 	sem_destroy(&usb->pool_low_priority_lock);
+	sem_destroy(&usb->num_staled_lock);
 	free(usb->interfaces);
 	free(usb->interface_pool);
 	free(usb);
 	return;
+}
+
+
+static void usb_conn_mark_staled(struct usb_conn_t *conn)
+{
+	if (conn->is_staled)
+		return;
+
+	struct usb_sock_t *usb = conn->parent;
+
+	sem_wait(&usb->num_staled_lock);
+	{
+		usb->num_staled++;
+	}
+	sem_post(&usb->num_staled_lock);
+
+	conn->is_staled = 1;
+}
+
+static void usb_conn_mark_moving(struct usb_conn_t *conn)
+{
+	if (!conn->is_staled)
+		return;
+
+	struct usb_sock_t *usb = conn->parent;
+
+	sem_wait(&usb->num_staled_lock);
+	{
+		usb->num_staled--;
+	}
+	sem_post(&usb->num_staled_lock);
+
+	conn->is_staled = 0;
+}
+
+static int usb_all_conns_staled(struct usb_sock_t *usb)
+{
+	int staled;
+
+	sem_wait(&usb->num_staled_lock);
+	{
+		// TODO: use pool lock
+		staled = usb->num_staled == usb->num_taken;
+	}
+	sem_post(&usb->num_staled_lock);
+
+	return staled;
 }
 
 struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
@@ -320,23 +383,26 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 	conn->parent = usb;
 	conn->is_high_priority = used_high_priority;
 
-	conn->interface_index = usb->interface_pool[--usb->num_avail];
+	usb->num_taken++;
+	uint32_t slot = --usb->num_avail;
+	conn->interface_index = usb->interface_pool[slot];
 	conn->interface = usb->interfaces + conn->interface_index;
 	return conn;
 }
 
 void usb_conn_release(struct usb_conn_t *conn)
 {
-
+	struct usb_sock_t *usb = conn->parent;
 	// Return usb interface to pool
-	uint32_t slot = ++conn->parent->num_avail;
-	conn->parent->interface_pool[slot] = conn->interface_index;
+	usb->num_taken--;
+	uint32_t slot = usb->num_avail++;
+	usb->interface_pool[slot] = conn->interface_index;
 
 	// Release our interface lock
 	if (conn->is_high_priority)
-		sem_post(&conn->parent->pool_high_priority_lock);
+		sem_post(&usb->pool_high_priority_lock);
 	else
-		sem_post(&conn->parent->pool_low_priority_lock);
+		sem_post(&usb->pool_low_priority_lock);
 
 	free(conn);
 }
@@ -347,27 +413,39 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 	int timeout = 1000; // in milliseconds
 	size_t sent = 0;
 	size_t pending = pkt->filled_size;
-	size_t portions = (pkt->filled_size / 512) + 1;
-	for (size_t i = 0; i < portions; i++) {
-		int to_send = 512;
-		if (pending <= 512)
+	while (pending > 0) {
+		int to_send = (int)pending;
+		if (pending < 512)
 			to_send = (int)pending;
 
+		NOTE("USB: want to send %d bytes", to_send);
 		int status = libusb_bulk_transfer(conn->parent->printer,
 		                                  conn->interface->endpoint_out,
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
-		pending -= to_send;
-		sent += to_send;
-		// TODO: check status
+		if (status == LIBUSB_ERROR_TIMEOUT) {
+			// TODO: add our own timeout
+			NOTE("USB: send timed out, retrying");
+			continue;
+		}
+		if (status == LIBUSB_ERROR_NO_DEVICE)
+			ERR_AND_EXIT("Printer has been disconnected");
 		if (status < 0)
-			ERR("usb data sending failed with status %d", status);
+			ERR_AND_EXIT("USB: send failed with status %s",
+				libusb_error_name(status));
+
+		pending -= size_sent;
+		sent += size_sent;
+		NOTE("USB: sent %d bytes", size_sent);
 	}
-	NOTE("sent %d bytes over usb\n", size_sent);
+	NOTE("USB: sent %d bytes in total", sent);
 }
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
 {
+	if (msg->is_completed)
+		return NULL;
+
 	struct http_packet_t *pkt = packet_new(msg);
 	if (pkt == NULL) {
 		ERR("failed to create packet for incoming usb message");
@@ -375,17 +453,29 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	}
 
 	// File packet
-	const int timeout = 100; // in milliseconds
+	const int timeout = 1000; // in milliseconds
 	ssize_t read_size_raw = packet_pending_bytes(pkt);
-	if (read_size_raw <= 0)
+	if (read_size_raw == 0)
+		return pkt;
+	else if (read_size_raw < 0)
 		goto cleanup;
 
 
+	int times_staled = 0;
 	while (read_size_raw > 0 && !msg->is_completed) {
 		if (read_size_raw >= INT_MAX)
 			goto cleanup;
 		int read_size = (int)read_size_raw;
 
+		// Ensure read_size is multiple of usb packets
+		read_size += (512 - (read_size % 512)) % 512;
+
+		// Expand buffer if needed
+		if (pkt->buffer_capacity < pkt->filled_size + read_size)
+			if (packet_expand(pkt) < 0)
+				ERR_AND_EXIT("Failed to ensure room for usb pkt");
+
+		NOTE("USB: Getting %d bytes of %d", read_size, pkt->expected_size);
 		int gotten_size = 0;
 		int status = libusb_bulk_transfer(
 		                      conn->parent->printer,
@@ -393,19 +483,44 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		                      pkt->buffer + pkt->filled_size,
 		                      read_size,
 		                      &gotten_size, timeout);
+
+		if (status == LIBUSB_ERROR_NO_DEVICE)
+			ERR_AND_EXIT("Printer has been disconnected");
+
 		if (status != 0 && status != LIBUSB_ERROR_TIMEOUT) {
 			ERR("bulk xfer failed with error code %d", status);
-			ERR("tried reading %ll bytes", read_size);
+			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
 		}
-		if (gotten_size == 0) {
-			// TODO: timeout in case printer crashed
-		}
-		packet_mark_received(pkt, gotten_size);
 
+		if (gotten_size > 0) {
+			times_staled = 0;
+			usb_conn_mark_moving(conn);
+		} else {
+			times_staled++;
+			if (times_staled > CONN_STALE_THRESHHOLD) {
+				usb_conn_mark_staled(conn);
+
+				if (usb_all_conns_staled(conn->parent) &&
+				    times_staled > PRINTER_CRASH_TIMEOUT) {
+					ERR("USB timedout, dropping data");
+					goto cleanup;
+				}
+			}
+
+			// Sleep for tenth of a second
+			struct timespec sleep_dur;
+			sleep_dur.tv_sec = 0;
+			sleep_dur.tv_nsec = 100000000;
+			nanosleep(&sleep_dur, NULL);
+		}
+
+		NOTE("USB: Got %d bytes", gotten_size);
+		packet_mark_received(pkt, gotten_size);
 		read_size_raw = packet_pending_bytes(pkt);
-		// TODO: if header not found yet at capacity expand packet
 	}
+	NOTE("USB: Received %d bytes of %d with type %d",
+			pkt->filled_size, pkt->expected_size, msg->type);
 
 	return pkt;
 

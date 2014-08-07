@@ -26,13 +26,12 @@ struct http_message_t {
 };
 
 struct http_packet_t {
+	// Cache
+	size_t header_size;
 
-	// size of filled content
 	size_t filled_size;
 	size_t expected_size;
 
-	// max capacity of buffer
-	// can be exapanded
 	size_t buffer_capacity;
 	uint8_t *buffer;
 
@@ -45,7 +44,6 @@ struct http_message_t *http_message_new(void);
 void message_free(struct http_message_t *);
 
 enum http_request_t packet_find_type(struct http_packet_t *pkt);
-int packet_at_capacity(struct http_packet_t *);
 size_t packet_pending_bytes(struct http_packet_t *);
 void packet_mark_received(struct http_packet_t *, size_t);
 

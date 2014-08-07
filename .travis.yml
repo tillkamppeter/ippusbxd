@@ -1,27 +1,21 @@
 language: c
 script: make
 compiler:
-    - clang
-    - gcc
+- clang
+- gcc
 before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -y libusb-1.0-0-dev
-
-
-# Coverity autoscan
+- sudo apt-get update -qq
+- sudo apt-get install -y libusb-1.0-0-dev
 env:
   global:
-   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
-   #   via the "travis encrypt" command using the project repo's public key
-   secure: "q0IS/BuGHeuMtKnoy6gMt9Epn3JeZ9wuHdIqwplyTqklENP2DPS2s5axcEf9cXJxE0hQKsvXtD87QEH0+ct3AsjqfiNWvs++CaLTNF8DVfpEe96h3+sJuaVZQL5RxF7qR/rhSRCk67AXqn+nu9b9wBtk5+7REFVs2Pn6gxoTAMs="
-
+  - secure: CtAND8k/8Lfs6o4dmrD9Jp4yLjLQRrv5TZA1MkhSO/LRfViKlbzy7ENv1/ku0xgtnsegFRDFY75/dLHxZUiax5TGNVrHqpkkGSE9h2a5YYHxbOtINb8Hdzk+S2/EN9YPmrOEX1ZjMg/wH08c3MntdW6gDUuddQhjCuaNnH+8fUc=
+  - secure: foN6qnWGy6p47PEutfZtUYUcg3DVHtuY3hfODDLDjc3TF7w7W9p/Mf/w4u++rkLuoKu/hESoiyj7/bSePx98EJgXsDprS/JkT8KKCaSsyViaIizrnF4YTQac/FC+A+7BUdg6xil0FI1xMipHQ/Z+nSwMT2ueeRThApNgufz66qw=
 addons:
   coverity_scan:
     project:
-      name: "daniel-dressler/ippusbd"
-      description: "IPP over USB daemon driver for linux"
+      name: daniel-dressler/ippusbxd
+      description: IPP over USB daemon driver for linux
     notification_email: danieru.dressler@gmail.com
-    build_command_prepend:
+    build_command_prepend: 
     build_command: make
     branch_pattern: coverity_check
-

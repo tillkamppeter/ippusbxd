@@ -4,16 +4,18 @@
 #include <syslog.h>
 
 #include "logging.h"
+#include "options.h"
 
-enum log_target setting_log_target;
-
-void BASE_LOG(const char *fmt, ...)
+void BASE_LOG(enum log_level level, const char *fmt, ...)
 {
+	if (!g_options.verbose_mode && level != LOGGING_ERROR)
+		return;
+
 	va_list arg;
 	va_start(arg, fmt);
-	if (setting_log_target == LOGGING_STDERR)
+	if (g_options.log_destination == LOGGING_STDERR)
 		vfprintf(stderr, fmt, arg);
-	else if (setting_log_target == LOGGING_SYSLOG)
+	else if (g_options.log_destination == LOGGING_SYSLOG)
 		syslog(LOG_ERR, fmt, arg);
 	va_end(arg);
 }

@@ -50,8 +50,6 @@ struct tcp_sock_t *tcp_open(uint32_t port)
 		goto error;
 	}
 
-	
-
 	return this;
 
 error:
@@ -100,20 +98,35 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 
 	size_t want_size = packet_pending_bytes(pkt);
 	if (want_size == 0)
-		goto error;
+		return pkt;
 
 	while (want_size != 0 && !msg->is_completed) {
+		NOTE("TCP: Getting %d bytes", want_size);
 		uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
 		ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
 		if (gotten_size < 0) {
 			int errno_saved = errno;
+			// TODO: checkfor timeout
 			ERR("recv failed with err %d:%s", errno_saved,
 				strerror(errno_saved));
 			goto error;
 		}
+		NOTE("TCP: Got %d bytes", gotten_size);
+		if (gotten_size == 0) {
+			tcp->is_closed = 1;
+			if (pkt->filled_size == 0) {
+				// Client closed TCP conn
+				goto error;
+			} else {
+				break;
+			}
+		}
+
 		packet_mark_received(pkt, gotten_size);
 		want_size = packet_pending_bytes(pkt);
 	}
+
+	NOTE("TCP: Received %lu bytes", pkt->filled_size);
 	return pkt;	
 	 
 error:
@@ -122,10 +135,21 @@ error:
 	return NULL;
 }
 
+// TODO: handle EPIPE and SIGPIPE with MSG_NOSIGNAL and check for pipe closures
 void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
-	send(conn->sd, pkt->buffer, pkt->filled_size, 0);
-	NOTE("sent %lu bytes over tcp\n", pkt->filled_size);
+	ssize_t remaining = pkt->filled_size;
+	ssize_t total = 0;
+	while (remaining > 0) {
+		ssize_t sent = send(conn->sd, pkt->buffer + total,
+		                    remaining, 0);
+		if (sent < 0)
+			ERR_AND_EXIT("Failed to sent data over TCP");
+
+		total += sent;
+		remaining -= sent;
+	}
+	NOTE("TCP: sent %lu bytes", total);
 }
 
 
