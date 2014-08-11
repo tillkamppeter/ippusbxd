@@ -98,7 +98,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 
 	size_t want_size = packet_pending_bytes(pkt);
 	if (want_size == 0) {
-		NOTE("TCP: Got %d from spare buffer", pkt->filled_size);
+		NOTE("TCP: Got %lu from spare buffer", pkt->filled_size);
 		return pkt;
 	}
 
