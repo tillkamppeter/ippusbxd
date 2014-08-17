@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 	int c;
 	g_options.log_destination = LOGGING_STDERR;
 
-	while ((c = getopt(argc, argv, "nhdp:u:s:l")) != -1) {
+	while ((c = getopt(argc, argv, "nhdp:u:s:lv:m:")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -213,6 +213,11 @@ int main(int argc, char *argv[])
 			break;
 		case 'n':
 			g_options.nofork_mode = 1;
+			break;
+		case 'v':
+			break;
+		case 'm':
+			break;
 		}
 	}
 
