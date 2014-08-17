@@ -126,7 +126,8 @@ static void start_daemon()
 		    " The requested port number may be too high.");
 		goto cleanup_tcp;
 	}
-	printf("%u\n", real_port);
+	printf("%u|", real_port);
+	fflush(stdout);
 
 	// Lose connection to caller
 	if (!g_options.nofork_mode && fork() > 0)
