@@ -82,8 +82,8 @@ struct usb_sock_t *usb_open()
 	int status = 1;
 	status = libusb_init(&usb->context);
 	if (status < 0) {
-		// TODO: use libusb_error_name for better status errors
-		ERR("libusb init failed with error code %d", status);
+		ERR("libusb init failed with error: %s",
+			libusb_error_name(status));
 		goto error_usbinit;
 	}
 
@@ -105,7 +105,6 @@ struct usb_sock_t *usb_open()
 		struct libusb_device_descriptor desc;
 		libusb_get_device_descriptor(candidate, &desc);
 
-		// TODO: use libusb_cpu_to_le16 to fix endianess
 		if (!is_our_device(candidate, desc))
 			continue;
 
@@ -149,7 +148,7 @@ found_device:
 		if (g_options.vendor_id ||
 		    g_options.product_id ||
 		    g_options.serial_num) {
-			ERR("No printer found by that vid & pid & serial");
+			ERR("No printer found by that vid, pid, serial");
 		} else {
 			ERR("No IPP over USB printer found");
 		}
@@ -237,14 +236,12 @@ found_device:
 			interfs--;
 			usb->interfaces[interfs].interface_number = interf_num;
 
-			// TODO: add conftest for endpoint count and direction
 			// Store interface's two endpoints
 			for (int end_i = 0; end_i < alt->bNumEndpoints;
 			     end_i++) {
 				const struct libusb_endpoint_descriptor *end = NULL;
 				end = &alt->endpoint[end_i];
 
-				// TODO: handle endianness
 				usb->max_packet_size = end->wMaxPacketSize;
 
 				// High bit set means endpoint
