@@ -170,18 +170,18 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	// No one uses or supports them.
 
 	// Find end of size string
-	uint8_t *size_end = NULL;
-	uint8_t *miniheader_end = NULL;
-	size_t max = pkt->filled_size;
-	for (size_t i = 0; i < pkt->filled_size; i++) {
+	const size_t max = pkt->filled_size;
+	ssize_t size_end = -1;
+	ssize_t miniheader_end = -1;
+	for (size_t i = 0; i < max; i++) {
 		uint8_t *buf = pkt->buffer;
-		if (size_end == NULL) {
+		if (size_end < 0) {
 			// No extension
 			if (i + 1 < max && (
 				buf[i] == '\r' &&  // CR
 				buf[i + 1] == '\n')// LF
 			) {
-				size_end = buf + i + 1;
+				size_end = i + 1;
 				miniheader_end = size_end;
 				break;
 			}
@@ -189,7 +189,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 			// No extension
 			if (buf[i] == '\n') // LF
 			{
-				size_end = buf + i;
+				size_end = i;
 				miniheader_end = size_end;
 				break;
 			}
@@ -197,29 +197,28 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 			// Has extensions
 			if (buf[i] == ';')
 			{
-				size_end = buf + i;
+				size_end = i;
 				continue;
 			}
 		}
-
-		if (miniheader_end == NULL) {
+		if (miniheader_end < 0) {
 			if (i + 1 < max && (
 				buf[i] == '\r' &&  // CR
 				buf[i + 1] == '\n')// LF
 			) {
-				miniheader_end = buf + i + 1;
+				miniheader_end = i + 1;
 				break;
 			}
 
 			if (buf[i] == '\n') // LF
 			{
-				miniheader_end = buf + i;
+				miniheader_end = i;
 				break;
 			}
 		}
 	}
 
-	if (miniheader_end == NULL) {
+	if (miniheader_end < 0) {
 		// NOTE: knowing just the size field
 		// is not enough since the extensions
 		// are not included in the size
@@ -227,15 +226,12 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 		return -1;
 	}
 
-
-
-	// TODO: make copy instead of mangling
 	// Temporary stringification for strtol()
-	uint8_t original_char = *size_end;
-	*size_end = '\0';
+	uint8_t original_char = *(pkt->buffer + size_end);
+	*(pkt->buffer + size_end) = '\0';
 	size_t size = strtol((char *)pkt->buffer, NULL, 16);
 	NOTE("Chunk size raw: %s", pkt->buffer);
-	*size_end = original_char;
+	*(pkt->buffer + size_end) = original_char;
 
 	// zero size chunk marks end of message
 	if (size == 0) {
@@ -244,10 +240,8 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 		pkt->is_completed = 1;
 	}
 
-	size_t miniheader_size = miniheader_end - pkt->buffer + 1;
-
 	size_t chunk_size = size; // Chunk body
-	chunk_size += miniheader_size; // Mini-header
+	chunk_size += miniheader_end + 1; // Mini-header
 	chunk_size += 2; // Trailing CRLF
 	NOTE("HTTP: Chunk size: %lu", chunk_size);
 	return chunk_size;
