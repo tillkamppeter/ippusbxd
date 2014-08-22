@@ -137,16 +137,20 @@ error:
 	return NULL;
 }
 
-// TODO: handle EPIPE and SIGPIPE with MSG_NOSIGNAL and check for pipe closures
 void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
 	ssize_t remaining = pkt->filled_size;
 	ssize_t total = 0;
 	while (remaining > 0) {
 		ssize_t sent = send(conn->sd, pkt->buffer + total,
-		                    remaining, 0);
-		if (sent < 0)
+		                    remaining, MSG_NOSIGNAL);
+		if (sent < 0) {
+			if (errno == EPIPE) {
+				conn->is_closed = 1;
+				return;
+			}
 			ERR_AND_EXIT("Failed to sent data over TCP");
+		}
 
 		total += sent;
 		remaining -= sent;
