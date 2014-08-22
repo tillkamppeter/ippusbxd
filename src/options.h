@@ -16,7 +16,7 @@ struct options {
 	int nofork_mode;
 
 	// Printer indentity
-	char *serial_num;
+	unsigned char *serial_num;
 	int vendor_id;
 	int product_id;
 };

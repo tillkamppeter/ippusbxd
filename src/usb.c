@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <time.h>
+#include <string.h>
 
 #include <libusb.h>
 
+#include "options.h"
 #include "logging.h"
 #include "http.h"
 #include "usb.h"
@@ -47,6 +49,33 @@ static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 	return ippusb_interface_count;
 }
 
+static int is_our_device(libusb_device *dev,
+                         struct libusb_device_descriptor desc)
+{
+	const int SERIAL_MAX = 1024;
+	unsigned char serial[SERIAL_MAX];
+	if ((g_options.vendor_id  && desc.idVendor  != g_options.vendor_id)  &&
+	    (g_options.product_id && desc.idProduct != g_options.product_id))
+		return 0;
+
+	if (g_options.serial_num == NULL)
+		return 1;
+
+	libusb_device_handle *handle = NULL;
+	int status = libusb_open(dev, &handle);
+	if (status != 0)
+		return 0;
+
+	status = libusb_get_string_descriptor_ascii(handle,
+			desc.iSerialNumber, serial, SERIAL_MAX);
+	libusb_close(handle);
+
+	if (status <= 0)
+		ERR_AND_EXIT("Failed to get serial from device");
+
+	return strcmp((char *)serial, (char *)g_options.serial_num) == 0;
+}
+
 struct usb_sock_t *usb_open()
 {
 	struct usb_sock_t *usb = calloc(1, sizeof *usb);
@@ -77,12 +106,9 @@ struct usb_sock_t *usb_open()
 		libusb_get_device_descriptor(candidate, &desc);
 
 		// TODO: use libusb_cpu_to_le16 to fix endianess
-		if (desc.idVendor  != 0x03f0 &&
-		    desc.idProduct != 0xc511)
+		if (!is_our_device(candidate, desc))
 			continue;
-		// TODO: filter on serial number
 
-		// TODO: search only device current config
 		for (uint8_t config_num = 0;
 		     config_num < desc.bNumConfigurations;
 		     config_num++) {
@@ -110,15 +136,23 @@ struct usb_sock_t *usb_open()
 				goto error;
 			}
 
-			ERR("usb device had no ipp-usb class interfaces");
-			// TODO: if VID and PID set warn 
-			// that the device is not a ipp printer
+			if (g_options.vendor_id ||
+			    g_options.product_id ||
+			    g_options.serial_num) {
+				ERR_AND_EXIT("No ipp-usb interfaces found");
+			}
 		}
 	}
 found_device:
 
 	if (printer_device == NULL) {
-		ERR("no printer found by that vid & pid & serial");
+		if (g_options.vendor_id ||
+		    g_options.product_id ||
+		    g_options.serial_num) {
+			ERR("No printer found by that vid & pid & serial");
+		} else {
+			ERR("No IPP over USB printer found");
+		}
 		goto error;
 	}
 

@@ -174,6 +174,14 @@ cleanup_usb:
 	return;
 }
 
+uint16_t strto16(const char *str)
+{
+	unsigned long val = strtoul(str, NULL, 16);
+	if (val > UINT16_MAX)
+		exit(1);
+	return val;
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -216,8 +224,13 @@ int main(int argc, char *argv[])
 			g_options.nofork_mode = 1;
 			break;
 		case 'v':
+			g_options.vendor_id = strto16(optarg);
 			break;
 		case 'm':
+			g_options.product_id = strto16(optarg);
+			break;
+		case 's':
+			g_options.serial_num = (unsigned char *)optarg;
 			break;
 		}
 	}
