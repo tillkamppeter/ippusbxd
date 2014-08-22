@@ -108,7 +108,6 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 		ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
 		if (gotten_size < 0) {
 			int errno_saved = errno;
-			// TODO: checkfor timeout
 			ERR("recv failed with err %d:%s", errno_saved,
 				strerror(errno_saved));
 			goto error;
