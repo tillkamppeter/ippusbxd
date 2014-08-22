@@ -23,7 +23,7 @@ struct usb_sock_t {
 	uint32_t num_staled;
 	sem_t num_staled_lock;
 
-	// TODO: add lock for pool
+	sem_t pool_manage_lock;
 	uint32_t num_avail;
 	uint32_t num_taken;
 

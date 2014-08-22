@@ -274,6 +274,7 @@ found_device:
 		usb->interface_pool[i] = i;
 	}
 
+
 	// Stale lock
 	int status_lock = sem_init(&usb->num_staled_lock, 0, 1);
 	if (status_lock != 0) {
@@ -281,6 +282,12 @@ found_device:
 		goto error;
 	}
 
+	// Pool management lock
+	status_lock = sem_init(&usb->pool_manage_lock, 0, 1);
+	if (status_lock != 0) {
+		ERR("Failed to create high priority pool lock");
+		goto error;
+	}
 	// High priority lock
 	status_lock = sem_init(&usb->pool_high_priority_lock, 0, 1);
 	if (status_lock != 0) {
@@ -375,8 +382,11 @@ static int usb_all_conns_staled(struct usb_sock_t *usb)
 
 	sem_wait(&usb->num_staled_lock);
 	{
-		// TODO: use pool lock
-		staled = usb->num_staled == usb->num_taken;
+		sem_wait(&usb->pool_manage_lock);
+		{
+			staled = usb->num_staled == usb->num_taken;
+		}
+		sem_post(&usb->pool_manage_lock);
 	}
 	sem_post(&usb->num_staled_lock);
 
@@ -411,31 +421,39 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 		return NULL;
 	}
 
-	conn->parent = usb;
-	conn->is_high_priority = used_high_priority;
+	sem_wait(&usb->pool_manage_lock);
+	{
+		conn->parent = usb;
+		conn->is_high_priority = used_high_priority;
 
-	usb->num_taken++;
-	uint32_t slot = --usb->num_avail;
-	conn->interface_index = usb->interface_pool[slot];
-	conn->interface = usb->interfaces + conn->interface_index;
+		usb->num_taken++;
+		uint32_t slot = --usb->num_avail;
+		conn->interface_index = usb->interface_pool[slot];
+		conn->interface = usb->interfaces + conn->interface_index;
+	}
+	sem_post(&usb->pool_manage_lock);
 	return conn;
 }
 
 void usb_conn_release(struct usb_conn_t *conn)
 {
 	struct usb_sock_t *usb = conn->parent;
-	// Return usb interface to pool
-	usb->num_taken--;
-	uint32_t slot = usb->num_avail++;
-	usb->interface_pool[slot] = conn->interface_index;
+	sem_wait(&usb->pool_manage_lock);
+	{
+		// Return usb interface to pool
+		usb->num_taken--;
+		uint32_t slot = usb->num_avail++;
+		usb->interface_pool[slot] = conn->interface_index;
 
-	// Release our interface lock
-	if (conn->is_high_priority)
-		sem_post(&usb->pool_high_priority_lock);
-	else
-		sem_post(&usb->pool_low_priority_lock);
+		// Release our interface lock
+		if (conn->is_high_priority)
+			sem_post(&usb->pool_high_priority_lock);
+		else
+			sem_post(&usb->pool_low_priority_lock);
 
-	free(conn);
+		free(conn);
+	}
+	sem_post(&usb->pool_manage_lock);
 }
 
 void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
