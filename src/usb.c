@@ -446,8 +446,6 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 	size_t pending = pkt->filled_size;
 	while (pending > 0) {
 		int to_send = (int)pending;
-		if (pending < 512)
-			to_send = (int)pending;
 
 		NOTE("USB: want to send %d bytes", to_send);
 		int status = libusb_bulk_transfer(conn->parent->printer,
