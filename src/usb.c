@@ -442,6 +442,7 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 {
 	int size_sent = 0;
 	int timeout = 1000; // in milliseconds
+	int num_timeouts = 0;
 	size_t sent = 0;
 	size_t pending = pkt->filled_size;
 	while (pending > 0) {
@@ -453,10 +454,19 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
 		if (status == LIBUSB_ERROR_TIMEOUT) {
-			// TODO: add our own timeout
 			NOTE("USB: send timed out, retrying");
+
+			if (num_timeouts++ > 10)
+				ERR_AND_EXIT("Usb send fully timed out");
+
+			// Sleep for tenth of a second
+			struct timespec sleep_dur;
+			sleep_dur.tv_sec = 0;
+			sleep_dur.tv_nsec = 100000000;
+			nanosleep(&sleep_dur, NULL);
 			continue;
 		}
+
 		if (status == LIBUSB_ERROR_NO_DEVICE)
 			ERR_AND_EXIT("Printer has been disconnected");
 		if (status < 0)
