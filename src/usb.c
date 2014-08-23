@@ -98,6 +98,9 @@ struct usb_sock_t *usb_open()
 	// Discover device and count interfaces ==---------------------------==
 	int selected_config = -1;
 	int selected_ipp_interface_count = 0;
+	int auto_pick = !(g_options.vendor_id ||
+	                  g_options.product_id ||
+	                  g_options.serial_num);
 
 	libusb_device *printer_device = NULL;
 	for (ssize_t i = 0; i < device_count; i++) {
@@ -135,9 +138,7 @@ struct usb_sock_t *usb_open()
 				goto error;
 			}
 
-			if (g_options.vendor_id ||
-			    g_options.product_id ||
-			    g_options.serial_num) {
+			if (!auto_pick) {
 				ERR_AND_EXIT("No ipp-usb interfaces found");
 			}
 		}
@@ -145,9 +146,7 @@ struct usb_sock_t *usb_open()
 found_device:
 
 	if (printer_device == NULL) {
-		if (g_options.vendor_id ||
-		    g_options.product_id ||
-		    g_options.serial_num) {
+		if (!auto_pick) {
 			ERR("No printer found by that vid, pid, serial");
 		} else {
 			ERR("No IPP over USB printer found");
