@@ -473,7 +473,7 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		if (status == LIBUSB_ERROR_TIMEOUT) {
 			NOTE("USB: send timed out, retrying");
 
-			if (num_timeouts++ > 10)
+			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT)
 				ERR_AND_EXIT("Usb send fully timed out");
 
 			// Sleep for tenth of a second
@@ -562,6 +562,11 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 					ERR("USB timedout, dropping data");
 					goto cleanup;
 				}
+
+				if (pkt->filled_size > 0)
+					NOTE("Packet so far \n%.*s\n",
+						pkt->filled_size,
+						pkt->buffer);
 			}
 
 			// Sleep for tenth of a second
