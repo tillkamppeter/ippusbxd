@@ -1,4 +1,4 @@
-# IPPUSBXD [![Coverity analysis status](https://scan.coverity.com/projects/2634/badge.svg)](https://scan.coverity.com/projects/2634) [![Build Status](https://travis-ci.org/daniel-dressler/ippusbxd.svg?branch=master)](https://travis-ci.org/daniel-dressler/ippusbxd)
+# IPPUSBXD [![Coverity analysis status](https://scan.coverity.com/projects/2634/badge.svg)](https://scan.coverity.com/projects/2634)
 
 License
 =======
