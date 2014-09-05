@@ -12,6 +12,8 @@
 #include "http.h"
 #include "usb.h"
 
+#define IGNORE(x) (void)(x)
+
 static int is_ippusb_interface(const struct libusb_interface_descriptor *interf)
 {
 	return interf->bInterfaceClass == 0x07 &&
@@ -70,8 +72,10 @@ static int is_our_device(libusb_device *dev,
 			desc.iSerialNumber, serial, SERIAL_MAX);
 	libusb_close(handle);
 
-	if (status <= 0)
-		ERR_AND_EXIT("Failed to get serial from device");
+	if (status <= 0) {
+		WARN("Failed to get serial from device");
+		return 0;
+	}
 
 	return strcmp((char *)serial, (char *)g_options.serial_num) == 0;
 }
@@ -342,6 +346,60 @@ void usb_close(struct usb_sock_t *usb)
 	return;
 }
 
+int usb_can_callback(struct usb_sock_t *usb)
+{
+	IGNORE(usb);
+
+	if (!g_options.vendor_id ||
+	    !g_options.product_id)
+	{
+		NOTE("Exit on unplug requires vid & pid");
+		return 0;
+	}
+
+	int works = !!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG);
+	if (!works)
+		WARN("Libusb cannot tell us when to disconnect");
+	return works;
+}
+
+int usb_exit_on_unplug(libusb_context *context,
+                              libusb_device *device,
+			      libusb_hotplug_event event,
+			      void *call_data)
+{
+	IGNORE(context);
+	IGNORE(event);
+	IGNORE(call_data);
+
+	NOTE("Received unplug callback");
+
+	struct libusb_device_descriptor desc;
+	libusb_get_device_descriptor(device, &desc);
+
+	if (is_our_device(device, desc))
+		exit(0);
+
+	return 0;
+}
+
+void usb_register_callback(struct usb_sock_t *usb)
+{
+	int status = libusb_hotplug_register_callback(
+			NULL,
+			LIBUSB_HOTPLUG_MATCH_ANY, // LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
+			0,
+			LIBUSB_HOTPLUG_MATCH_ANY, // g_options.vendor_id,
+			LIBUSB_HOTPLUG_MATCH_ANY, // g_options.product_id,
+			LIBUSB_HOTPLUG_MATCH_ANY, // LIBUSB_CLASS_PRINTER,
+			&usb_exit_on_unplug,
+			NULL,
+			NULL);
+	if (status == LIBUSB_SUCCESS)
+		NOTE("Registered unplug callback");
+	else
+		ERR("Failed to register unplug callback");
+}
 
 static void usb_conn_mark_staled(struct usb_conn_t *conn)
 {

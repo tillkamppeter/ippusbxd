@@ -134,6 +134,11 @@ static void start_daemon()
 	if (!g_options.nofork_mode && fork() > 0)
 		exit(0);
 
+
+	// Register for unplug event
+	if (usb_can_callback(usb_sock))
+		usb_register_callback(usb_sock);
+
 	for (;;) {
 		struct service_thread_param *args = calloc(1, sizeof(*args));
 		if (args == NULL) {

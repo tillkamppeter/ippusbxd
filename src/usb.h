@@ -44,6 +44,9 @@ struct usb_conn_t {
 struct usb_sock_t *usb_open(void);
 void usb_close(struct usb_sock_t *);
 
+int usb_can_callback(struct usb_sock_t *);
+void usb_register_callback(struct usb_sock_t *);
+
 struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *, int);
 void usb_conn_release(struct usb_conn_t *);
 
