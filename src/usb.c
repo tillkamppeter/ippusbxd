@@ -516,7 +516,7 @@ void usb_conn_release(struct usb_conn_t *conn)
 void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 {
 	int size_sent = 0;
-	int timeout = 100000; // in milliseconds
+	const int timeout = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 	int num_timeouts = 0;
 	size_t sent = 0;
 	size_t pending = pkt->filled_size;
@@ -567,7 +567,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	}
 
 	// File packet
-	const int timeout = 100000; // in milliseconds
+	const int timeout = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 	ssize_t read_size_raw = packet_pending_bytes(pkt);
 	if (read_size_raw == 0)
 		return pkt;
