@@ -90,7 +90,6 @@ static void *service_connection(void *arg_void)
 		}
 		NOTE("Interface #%d: Server msg completed\n",
 				usb->interface_index);
-		// TODO: Check if usb is empty in debug mode
 
 cleanup_subconn:
 		if (client_msg != NULL)
