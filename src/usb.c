@@ -353,7 +353,7 @@ int usb_can_callback(struct usb_sock_t *usb)
 	if (!g_options.vendor_id ||
 	    !g_options.product_id)
 	{
-		NOTE("Exit on unplug requires vid & pid");
+		NOTE("Exit-on-unplug requires vid & pid");
 		return 0;
 	}
 

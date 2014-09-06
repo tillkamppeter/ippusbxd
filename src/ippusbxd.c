@@ -57,7 +57,7 @@ static void *service_connection(void *arg_void)
 						usb->interface_index);
 			}
 
-			//NOTE("%.*s", (int)pkt->filled_size, pkt->buffer);
+			NOTE("Pkt from tcp\n===\n%.*s\n===", (int)pkt->filled_size, pkt->buffer);
 			usb_conn_packet_send(usb, pkt);
 			packet_free(pkt);
 		}
@@ -81,7 +81,7 @@ static void *service_connection(void *arg_void)
 			if (pkt == NULL)
 				break;
 
-			NOTE("Pkt from usb: \n%.*s",
+			NOTE("Pkt from usb\n===\n%.*s\n===",
 					(int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
 			packet_free(pkt);
