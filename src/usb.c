@@ -385,6 +385,8 @@ int usb_exit_on_unplug(libusb_context *context,
 
 void usb_register_callback(struct usb_sock_t *usb)
 {
+	IGNORE(usb);
+
 	int status = libusb_hotplug_register_callback(
 			NULL,
 			LIBUSB_HOTPLUG_MATCH_ANY, // LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
