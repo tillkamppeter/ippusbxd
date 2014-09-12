@@ -11,9 +11,10 @@ OSX implemented this standard and with the addition of ippusbxd soon linux shall
 as well.
 
 IPPUSBXD depends on posixs threads, posixs networking, and libusb as developed
-by the community at [libusb.info].
+by the community at libusb.info
 
 IPPUSBXD has the following advantages;
+
 1. At runtime links only with libc, pthreads, and libusb. On a typical system
 these libraries will already be in RAM. This gives ippusbxd a minimal ram
 footprint.
@@ -22,6 +23,8 @@ footprint.
 4. Raises no warnings in clang, gcc, nor coverity static analysis.
 5. Written in C11
 6. Can be installed anywhere
+7. Near zero cpu usage while idle
+8. Low cpu usage while working, could run on a 6800
 
 Building
 =======
@@ -30,10 +33,10 @@ To build ippusbxd you must have the libusb 1.0 development headers installed alo
 with cmake.
 
 Under Ubuntu and Debian this is acomplished by running:
-	sudo apt-get install libusb-1.0-0-dev cmake
+  sudo apt-get install libusb-1.0-0-dev cmake
 
 Once the dependencies are installed simply run:
-	make
+  make
 
 That will run a makefile which will inturn run cmake. This makefile also
 supports several GNU-style make commands such as clean, and redep.

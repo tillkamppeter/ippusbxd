@@ -9,7 +9,7 @@
 #include "http.h"
 #include "logging.h"
 
-#define BUFFER_STEP (1 << 18)
+#define BUFFER_STEP (1 << 12)
 
 struct http_message_t *http_message_new()
 {
@@ -561,8 +561,11 @@ ssize_t packet_expand(struct http_packet_t *pkt)
 {
 	size_t cur_size = pkt->buffer_capacity;
 	size_t new_size = cur_size * 2;
-	if (new_size > MAX_PACKET_SIZE)
+	if (new_size > MAX_PACKET_SIZE) {
+		WARN("HTTP: cannot expand packet beyond limit");
 		return -1;
+	}
+	NOTE("HTTP: doubling packet buffer to %lu", new_size);
 
 	uint8_t *new_buf = realloc(pkt->buffer, new_size);
 	if (new_buf == NULL) {
@@ -571,5 +574,6 @@ ssize_t packet_expand(struct http_packet_t *pkt)
 		return 0;
 	}
 	pkt->buffer = new_buf;
+	pkt->buffer_capacity = new_size;
 	return new_size - cur_size;
 }
