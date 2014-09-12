@@ -25,9 +25,9 @@ struct tcp_conn_t {
 	int is_closed;
 };
 
-struct tcp_sock_t *tcp_open(uint32_t);
+struct tcp_sock_t *tcp_open(uint16_t);
 void tcp_close(struct tcp_sock_t *);
-uint32_t tcp_port_number_get(struct tcp_sock_t *);
+uint16_t tcp_port_number_get(struct tcp_sock_t *);
 
 struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *);
 void tcp_conn_close(struct tcp_conn_t *);

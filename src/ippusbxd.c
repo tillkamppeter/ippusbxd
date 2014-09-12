@@ -115,12 +115,12 @@ static void start_daemon()
 		goto cleanup_usb;
 
 	// Capture a socket
-	uint32_t desired_port = g_options.desired_port;
+	uint16_t desired_port = g_options.desired_port;
 	struct tcp_sock_t *tcp_socket = tcp_open(desired_port);
 	if (tcp_socket == NULL)
 		goto cleanup_tcp;
 
-	uint32_t real_port = tcp_port_number_get(tcp_socket);
+	uint16_t real_port = tcp_port_number_get(tcp_socket);
 	if (desired_port != 0 && desired_port != real_port) {
 		ERR("Received port number did not match requested port number."
 		    " The requested port number may be too high.");

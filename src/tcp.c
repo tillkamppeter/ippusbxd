@@ -12,7 +12,7 @@
 #include "tcp.h"
 
 
-struct tcp_sock_t *tcp_open(uint32_t port)
+struct tcp_sock_t *tcp_open(uint16_t port)
 {
 	struct tcp_sock_t *this = calloc(1, sizeof *this);
 	if (this == NULL) {
@@ -68,7 +68,7 @@ void tcp_close(struct tcp_sock_t *this)
 	free(this);
 }
 
-uint32_t tcp_port_number_get(struct tcp_sock_t *sock)
+uint16_t tcp_port_number_get(struct tcp_sock_t *sock)
 {
 	sock->info_size = sizeof sock->info;
 	int query_status = getsockname(
