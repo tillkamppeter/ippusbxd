@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
+#include <stdint.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -207,12 +207,12 @@ int main(int argc, char *argv[])
 				ERR("Port number must be non-negative");
 				return 1;
 			}
-			if (port > (long long)UINT_MAX) {
+			if (port > UINT16_MAX) {
 				ERR("Port number must be %u or less, "
-				    "but not negative", UINT_MAX);
+				    "but not negative", UINT16_MAX);
 				return 2;
 			}
-			g_options.desired_port = port;
+			g_options.desired_port = (uint16_t)port;
 			break;
 		}
 		case 'u':

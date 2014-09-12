@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 enum log_target {
 	LOGGING_STDERR,
@@ -7,7 +8,7 @@ enum log_target {
 
 struct options {
 	// Runtime configuration
-	unsigned int desired_port;
+	uint16_t desired_port;
 	enum log_target log_destination;
 
 	// Behavior
