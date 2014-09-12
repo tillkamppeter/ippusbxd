@@ -363,7 +363,7 @@ int usb_can_callback(struct usb_sock_t *usb)
 	return works;
 }
 
-int usb_exit_on_unplug(libusb_context *context,
+static int usb_exit_on_unplug(libusb_context *context,
                               libusb_device *device,
 			      libusb_hotplug_event event,
 			      void *call_data)
@@ -389,11 +389,18 @@ void usb_register_callback(struct usb_sock_t *usb)
 
 	int status = libusb_hotplug_register_callback(
 			NULL,
-			LIBUSB_HOTPLUG_MATCH_ANY, // LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
-			0,
-			LIBUSB_HOTPLUG_MATCH_ANY, // g_options.vendor_id,
-			LIBUSB_HOTPLUG_MATCH_ANY, // g_options.product_id,
-			LIBUSB_HOTPLUG_MATCH_ANY, // LIBUSB_CLASS_PRINTER,
+			LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
+			// Note: libusb's enum has no default value
+			// a bug has been filled with libusb.
+			// Please switch the below line to 0
+			// once the issue has been fixed in
+			// deployed versions of libusb
+			// https://github.com/libusb/libusb/issues/35
+			// 0,
+			LIBUSB_HOTPLUG_ENUMERATE,
+			g_options.vendor_id,
+			g_options.product_id,
+			LIBUSB_CLASS_PRINTER,
 			&usb_exit_on_unplug,
 			NULL,
 			NULL);
