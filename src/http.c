@@ -379,11 +379,11 @@ do_ret:
 
 size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
+	struct http_message_t *msg = pkt->parent_message;
+
 	// Check Cache
 	if (pkt->expected_size > 0)
 		goto pending_known;
-
-	struct http_message_t *msg = pkt->parent_message;
 
 	if (HTTP_UNSET == msg->type) {
 		msg->type = packet_find_type(pkt);
