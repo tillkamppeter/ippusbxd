@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 	int c;
 	g_options.log_destination = LOGGING_STDERR;
 
-	while ((c = getopt(argc, argv, "qnhdp:u:s:lv:m:")) != -1) {
+	while ((c = getopt(argc, argv, "qnhdp:s:lv:m:")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -215,9 +215,6 @@ int main(int argc, char *argv[])
 			g_options.desired_port = (uint16_t)port;
 			break;
 		}
-		case 'u':
-			// [u]sb device to bind with
-			break;
 		case 'l':
 			g_options.log_destination = LOGGING_SYSLOG;
 			break;
