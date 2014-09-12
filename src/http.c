@@ -161,7 +161,6 @@ static void packet_take_spare(struct http_packet_t *pkt)
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 {
-	// TODO: support trailers
 	// NOTE:
 	// chunks can have trailers which are
 	// tacked on http header fields. 
@@ -233,18 +232,44 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	NOTE("Chunk size raw: %s", pkt->buffer);
 	*(pkt->buffer + size_end) = original_char;
 
-	// zero size chunk marks end of message
-	if (size == 0) {
-		NOTE("Found end chunked packet");
-		pkt->parent_message->is_completed = 1;
-		pkt->is_completed = 1;
+	if (size > 0) {
+		// Regular chunk
+		size_t chunk_size = size; // Chunk body
+		chunk_size += miniheader_end + 1; // Mini-header
+		chunk_size += 2; // Trailing CRLF
+		NOTE("HTTP: Chunk size: %lu", chunk_size);
+		return chunk_size;
 	}
 
-	size_t chunk_size = size; // Chunk body
-	chunk_size += miniheader_end + 1; // Mini-header
-	chunk_size += 2; // Trailing CRLF
-	NOTE("HTTP: Chunk size: %lu", chunk_size);
-	return chunk_size;
+	// Terminator chunk
+	// May have trailers in body
+	ssize_t full_size = -1;
+	for (size_t i = miniheader_end + 1; i < max; i++) {
+		uint8_t *buf = pkt->buffer;
+		if (i + 1 < max && (
+			buf[i] == '\r' &&  // CR
+			buf[i + 1] == '\n')// LF
+		) {
+			full_size = i + 2;
+			break;
+		}
+
+		if (buf[i] == '\n') // LF
+		{
+			full_size = i + 1;
+			break;
+		}
+	}
+
+	if (full_size < 0) {
+		NOTE("Chunk miniheader present but body incomplete");
+		return -1;
+	}
+
+	NOTE("Found end chunked packet");
+	pkt->parent_message->is_completed = 1;
+	pkt->is_completed = 1;
+	return full_size;
 }
 
 static ssize_t packet_get_header_size(struct http_packet_t *pkt)
