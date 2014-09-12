@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 	int c;
 	g_options.log_destination = LOGGING_STDERR;
 
-	while ((c = getopt(argc, argv, "nhdp:u:s:lv:m:")) != -1) {
+	while ((c = getopt(argc, argv, "qnhdp:u:s:lv:m:")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -225,6 +225,9 @@ int main(int argc, char *argv[])
 			g_options.nofork_mode = 1;
 			g_options.verbose_mode = 1;
 			break;
+		case 'q':
+			g_options.verbose_mode = 1;
+			break;
 		case 'n':
 			g_options.nofork_mode = 1;
 			break;
@@ -250,6 +253,7 @@ int main(int argc, char *argv[])
 		"  -s <serial>  Serial number of desired printer\n"
 		"  -p <portnum> Port number to bind against\n"
 		"  -l           Redirect logging to syslog\n"
+		"  -q           Enable verbose tracing\n"
 		"  -d           Debug mode for verbose output and no fork\n"
 		"  -n           No fork mode\n"
 		, argv[0]);
