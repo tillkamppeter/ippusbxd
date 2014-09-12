@@ -179,12 +179,12 @@ cleanup_usb:
 	return;
 }
 
-uint16_t strto16(const char *str)
+static uint16_t strto16(const char *str)
 {
 	unsigned long val = strtoul(str, NULL, 16);
 	if (val > UINT16_MAX)
 		exit(1);
-	return val;
+	return (uint16_t)val;
 }
 
 int main(int argc, char *argv[])

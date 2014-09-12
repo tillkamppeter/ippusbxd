@@ -10,7 +10,7 @@ elseif( ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Weverything -Wno-documentation -Wno-padded")
     # Warnings below this should be enabled. They are currently off because they
     # are REALLY noisy (bad thing)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
+    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
 endif()
 
