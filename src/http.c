@@ -172,6 +172,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	const size_t max = pkt->filled_size;
 	ssize_t size_end = -1;
 	ssize_t miniheader_end = -1;
+	ssize_t delimiter_start = -1;
 	for (size_t i = 0; i < max; i++) {
 		uint8_t *buf = pkt->buffer;
 		if (size_end < 0) {
@@ -182,6 +183,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 			) {
 				size_end = i + 1;
 				miniheader_end = size_end;
+				delimiter_start = i;
 				break;
 			}
 
@@ -190,6 +192,7 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 			{
 				size_end = i;
 				miniheader_end = size_end;
+				delimiter_start = i;
 				break;
 			}
 			
@@ -206,12 +209,14 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 				buf[i + 1] == '\n')// LF
 			) {
 				miniheader_end = i + 1;
+				delimiter_start = i;
 				break;
 			}
 
 			if (buf[i] == '\n') // LF
 			{
 				miniheader_end = i;
+				delimiter_start = i;
 				break;
 			}
 		}
@@ -244,19 +249,23 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	// Terminator chunk
 	// May have trailers in body
 	ssize_t full_size = -1;
-	for (size_t i = miniheader_end + 1; i < max; i++) {
+	for (size_t i = delimiter_start; i < max; i++) {
 		uint8_t *buf = pkt->buffer;
-		if (i + 1 < max && (
-			buf[i] == '\r' &&  // CR
-			buf[i + 1] == '\n')// LF
+		if (i + 3 < max && (
+			buf[i] == '\r' &&     // CR
+			buf[i + 1] == '\n' && // LF
+			buf[i + 2] == '\r' && // CR
+			buf[i + 3] == '\n')   // LF
 		) {
-			full_size = i + 2;
+			full_size = i + 4;
 			break;
 		}
 
-		if (buf[i] == '\n') // LF
+		if (i + 1 < max &&
+			buf[i] == '\n' &&   // LF
+			buf[i + 1] == '\n') // LF
 		{
-			full_size = i + 1;
+			full_size = i + 2;
 			break;
 		}
 	}
