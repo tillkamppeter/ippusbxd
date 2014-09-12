@@ -54,8 +54,8 @@ static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 static int is_our_device(libusb_device *dev,
                          struct libusb_device_descriptor desc)
 {
-	const int SERIAL_MAX = 1024;
-	unsigned char serial[SERIAL_MAX];
+	static const int SERIAL_MAX = 1024;
+	unsigned char serial[1024];
 	if ((g_options.vendor_id  && desc.idVendor  != g_options.vendor_id)  &&
 	    (g_options.product_id && desc.idProduct != g_options.product_id))
 		return 0;
