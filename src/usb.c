@@ -203,41 +203,15 @@ found_device:
 			if (!is_ippusb_interface(alt))
 				continue;
 
-			// Release kernel driver
-			if (libusb_kernel_driver_active(usb->printer,
-			                                interf_num) == 1) {
-				// Only linux supports this
-				// other platforms will fail
-				// thus we ignore the error code
-				// it either works or it does not
-				libusb_detach_kernel_driver(usb->printer,
-				                            interf_num);
-			}
-
-			// Claim the whole interface
-			status = libusb_claim_interface(
-					usb->printer,
-					alt->bInterfaceNumber);
-			switch (status) {
-			case LIBUSB_ERROR_NOT_FOUND:
-				ERR("USB Interface did not exist");
-				goto error_config;
-			case LIBUSB_ERROR_BUSY:
-				ERR("Printer was already claimed");
-				goto error_config;
-			case LIBUSB_ERROR_NO_DEVICE:
-				ERR("Printer was already claimed");
-				goto error_config;
-			case 0:
-				break;
-			}
-
 			// Select the IPP-USB alt setting of the interface
 			libusb_set_interface_alt_setting(usb->printer,
 			                                 interf_num,
 			                                 alt_num);
 			interfs--;
-			usb->interfaces[interfs].interface_number = interf_num;
+
+			struct usb_interface *uf = usb->interfaces + interfs;
+			uf->interface_number = interf_num;
+			uf->libusb_interface_index = alt->bInterfaceNumber;
 
 			// Store interface's two endpoints
 			for (int end_i = 0; end_i < alt->bNumEndpoints;
@@ -250,8 +224,6 @@ found_device:
 				// High bit set means endpoint
 				// is an INPUT or IN endpoint.
 				uint8_t address = end->bEndpointAddress;
-				struct usb_interface *uf =
-						usb->interfaces + interfs;
 				if (address & 0x80)
 					uf->endpoint_in = address;
 				else
@@ -307,9 +279,6 @@ found_device:
 
 	return usb;
 
-error_config:
-	if (config != NULL)
-		libusb_free_config_descriptor(config);
 error:
 	if (device_list != NULL)
 		libusb_free_device_list(device_list, 1);
@@ -494,8 +463,39 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 
 		usb->num_taken++;
 		uint32_t slot = --usb->num_avail;
+
 		conn->interface_index = usb->interface_pool[slot];
 		conn->interface = usb->interfaces + conn->interface_index;
+		struct usb_interface *uf = conn->interface;
+
+		// Make kernel release interface
+		if (libusb_kernel_driver_active(usb->printer,
+		                            uf->libusb_interface_index) == 1) {
+			// Only linux supports this
+			// other platforms will fail
+			// thus we ignore the error code
+			// it either works or it does not
+			libusb_detach_kernel_driver(usb->printer,
+			                           uf->libusb_interface_index);
+		}
+
+		// Claim the whole interface
+		int status = 0;
+		do {
+			// Spinlock-like
+			// Libusb does not offer a blocking call
+			// so we're left with a spinlock
+			status = libusb_claim_interface(
+				usb->printer, uf->libusb_interface_index);
+			switch (status) {
+			case LIBUSB_ERROR_NOT_FOUND:
+				ERR_AND_EXIT("USB Interface did not exist");
+			case LIBUSB_ERROR_NO_DEVICE:
+				ERR_AND_EXIT("Printer was removed");
+			default:
+				break;
+			}
+		} while (status != 0);
 	}
 	sem_post(&usb->pool_manage_lock);
 	return conn;
@@ -506,6 +506,9 @@ void usb_conn_release(struct usb_conn_t *conn)
 	struct usb_sock_t *usb = conn->parent;
 	sem_wait(&usb->pool_manage_lock);
 	{
+		libusb_release_interface(usb->printer,
+				conn->interface->libusb_interface_index);
+
 		// Return usb interface to pool
 		usb->num_taken--;
 		uint32_t slot = usb->num_avail++;

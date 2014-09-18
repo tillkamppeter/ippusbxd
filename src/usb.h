@@ -8,6 +8,7 @@ static const int CONN_STALE_THRESHHOLD = 6;
 
 struct usb_interface {
 	uint8_t interface_number;
+	uint8_t libusb_interface_index;
 	uint8_t endpoint_in;
 	uint8_t endpoint_out;
 };
