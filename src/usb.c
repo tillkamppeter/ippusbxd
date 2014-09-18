@@ -213,7 +213,7 @@ found_device:
 			// Store interface's two endpoints
 			for (int end_i = 0; end_i < alt->bNumEndpoints;
 			     end_i++) {
-				const struct libusb_endpoint_descriptor *end = NULL;
+				const struct libusb_endpoint_descriptor *end;
 				end = &alt->endpoint[end_i];
 
 				usb->max_packet_size = end->wMaxPacketSize;
