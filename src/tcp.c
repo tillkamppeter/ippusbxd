@@ -123,7 +123,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 			}
 		}
 
-		packet_mark_received(pkt, gotten_size);
+		packet_mark_received(pkt, (unsigned) gotten_size);
 		want_size = packet_pending_bytes(pkt);
 	}
 
@@ -138,8 +138,8 @@ error:
 
 void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
-	ssize_t remaining = pkt->filled_size;
-	ssize_t total = 0;
+	size_t remaining = pkt->filled_size;
+	size_t total = 0;
 	while (remaining > 0) {
 		ssize_t sent = send(conn->sd, pkt->buffer + total,
 		                    remaining, MSG_NOSIGNAL);
@@ -151,8 +151,12 @@ void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 			ERR_AND_EXIT("Failed to sent data over TCP");
 		}
 
-		total += sent;
-		remaining -= sent;
+		size_t sent_ulong = (unsigned) sent;
+		total += sent_ulong;
+		if (sent_ulong >= remaining)
+			remaining = 0;
+		else
+			remaining -= sent_ulong;
 	}
 	NOTE("TCP: sent %lu bytes", total);
 }
