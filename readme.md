@@ -22,11 +22,12 @@ these libraries will already be in RAM. This gives ippusbxd a minimal ram
 footprint.
 2. Requires no read access to any files.
 3. Ships with a strict apparmor profile.
-4. Raises no warnings in clang, gcc, nor coverity static analysis.
-5. Written in C11
+3. Runs warning & leak free in valgrind
+4. Compiles warning free in clang
+5. Analyzed warning free in Coverity
 6. Can be installed anywhere
 7. Near zero cpu usage while idle
-8. Low cpu usage while working, could run on a 6800
+8. Low cpu usage while working
 
 Building
 =======
