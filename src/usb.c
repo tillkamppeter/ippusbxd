@@ -203,15 +203,12 @@ found_device:
 			if (!is_ippusb_interface(alt))
 				continue;
 
-			// Select the IPP-USB alt setting of the interface
-			libusb_set_interface_alt_setting(usb->printer,
-			                                 interf_num,
-			                                 alt_num);
 			interfs--;
 
 			struct usb_interface *uf = usb->interfaces + interfs;
 			uf->interface_number = interf_num;
 			uf->libusb_interface_index = alt->bInterfaceNumber;
+			uf->interface_alt = alt_num;
 
 			// Store interface's two endpoints
 			for (int end_i = 0; end_i < alt->bNumEndpoints;
@@ -496,6 +493,11 @@ struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
 				break;
 			}
 		} while (status != 0);
+
+		// Select the IPP-USB alt setting of the interface
+		libusb_set_interface_alt_setting(usb->printer,
+		                                 uf->libusb_interface_index,
+		                                 uf->interface_alt);
 	}
 	sem_post(&usb->pool_manage_lock);
 	return conn;
