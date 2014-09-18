@@ -16,7 +16,7 @@ elseif( ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
 
     # Warnings below this should be enabled. They are currently off because they
     # are REALLY noisy (bad thing)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
+    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
 endif()
 
 # Pthreads

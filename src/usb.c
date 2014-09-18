@@ -101,7 +101,7 @@ struct usb_sock_t *usb_open()
 
 	// Discover device and count interfaces ==---------------------------==
 	int selected_config = -1;
-	int selected_ipp_interface_count = 0;
+	unsigned int selected_ipp_interface_count = 0;
 	int auto_pick = !(g_options.vendor_id ||
 	                  g_options.product_id ||
 	                  g_options.serial_num);
@@ -130,7 +130,7 @@ struct usb_sock_t *usb_open()
 			libusb_free_config_descriptor(config);
 			if (interface_count >= 2) {
 				selected_config = config_num;
-				selected_ipp_interface_count = interface_count;
+				selected_ipp_interface_count = (unsigned) interface_count;
 				printer_device = candidate;
 				goto found_device;
 			}
@@ -185,7 +185,7 @@ found_device:
 		goto error;
 	}
 
-	int interfs = selected_ipp_interface_count;
+	unsigned int interfs = selected_ipp_interface_count;
 	for (uint8_t interf_num = 0;
 	     interf_num < config->bNumInterfaces;
 	     interf_num++) {
@@ -561,9 +561,11 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		if (status < 0)
 			ERR_AND_EXIT("USB: send failed with status %s",
 				libusb_error_name(status));
+		if (size_sent < 0)
+			ERR_AND_EXIT("Unexpected negative size_sent");
 
-		pending -= size_sent;
-		sent += size_sent;
+		pending -= (size_t) size_sent;
+		sent += (size_t) size_sent;
 		NOTE("USB: sent %d bytes", size_sent);
 	}
 	NOTE("USB: sent %d bytes in total", sent);
@@ -582,24 +584,21 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 
 	// File packet
 	const int timeout = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-	ssize_t read_size_raw = packet_pending_bytes(pkt);
-	if (read_size_raw == 0)
+	size_t read_size_ulong = packet_pending_bytes(pkt);
+	if (read_size_ulong == 0)
 		return pkt;
-	else if (read_size_raw < 0)
-		goto cleanup;
-
 
 	int times_staled = 0;
-	while (read_size_raw > 0 && !msg->is_completed) {
-		if (read_size_raw >= INT_MAX)
+	while (read_size_ulong > 0 && !msg->is_completed) {
+		if (read_size_ulong >= INT_MAX)
 			goto cleanup;
-		int read_size = (int)read_size_raw;
+		int read_size = (int)read_size_ulong;
 
 		// Ensure read_size is multiple of usb packets
 		read_size += (512 - (read_size % 512)) % 512;
 
 		// Expand buffer if needed
-		if (pkt->buffer_capacity < pkt->filled_size + read_size)
+		if (pkt->buffer_capacity < pkt->filled_size + read_size_ulong)
 			if (packet_expand(pkt) < 0)
 				ERR_AND_EXIT("Failed to ensure room for usb pkt");
 
@@ -620,6 +619,9 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
 		}
+
+		if (gotten_size < 0)
+			ERR_AND_EXIT("Negative read size unexpected");
 
 		if (gotten_size > 0) {
 			times_staled = 0;
@@ -649,8 +651,8 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		}
 
 		NOTE("USB: Got %d bytes", gotten_size);
-		packet_mark_received(pkt, gotten_size);
-		read_size_raw = packet_pending_bytes(pkt);
+		packet_mark_received(pkt, (size_t)gotten_size);
+		read_size_ulong = packet_pending_bytes(pkt);
 	}
 	NOTE("USB: Received %d bytes of %d with type %d",
 			pkt->filled_size, pkt->expected_size, msg->type);
