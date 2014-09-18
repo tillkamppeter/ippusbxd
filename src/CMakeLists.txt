@@ -13,10 +13,6 @@ elseif( ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
     # format string since you will not get a warning. Coverity is smart enough
     # on this matter.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-nonliteral")
-
-    # Warnings below this should be enabled. They are currently off because they
-    # are REALLY noisy (bad thing)
-    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
 endif()
 
 # Pthreads
