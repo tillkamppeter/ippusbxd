@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <assert.h>
 
+#include <limits.h>
+
 #include "http.h"
 #include "logging.h"
 
@@ -76,7 +78,7 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 		return -1;
 
 	// Find first digit
-	size_t number_pos = (pos - pkt->buffer) + key_size;
+	size_t number_pos = (size_t) (pos - pkt->buffer) + key_size;
 	while (number_pos < pkt->filled_size && !isdigit(pkt->buffer[number_pos]))
 		++number_pos;
 
@@ -91,7 +93,7 @@ static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
 		return -1;
 
 	// Temporary stringification of buffer for atoi()
-	char original_char = pkt->buffer[number_end];
+	uint8_t original_char = pkt->buffer[number_end];
 	pkt->buffer[number_end] = '\0';
 	int val = atoi((const char *)(pkt->buffer + number_pos));
 
@@ -169,11 +171,15 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	// No one uses or supports them.
 
 	// Find end of size string
-	const size_t max = pkt->filled_size;
+	if (pkt->filled_size >= SSIZE_MAX)
+		ERR_AND_EXIT("Buffer beyond sane size");
+
+	ssize_t max = (ssize_t) pkt->filled_size;
 	ssize_t size_end = -1;
 	ssize_t miniheader_end = -1;
 	ssize_t delimiter_start = -1;
-	for (size_t i = 0; i < max; i++) {
+	for (ssize_t i = 0; i < max; i++) {
+
 		uint8_t *buf = pkt->buffer;
 		if (size_end < 0) {
 			// No extension
@@ -233,23 +239,25 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 	// Temporary stringification for strtol()
 	uint8_t original_char = *(pkt->buffer + size_end);
 	*(pkt->buffer + size_end) = '\0';
-	size_t size = strtol((char *)pkt->buffer, NULL, 16);
+	size_t size = strtoul((char *)pkt->buffer, NULL, 16);
 	NOTE("Chunk size raw: %s", pkt->buffer);
 	*(pkt->buffer + size_end) = original_char;
+	if (size > SSIZE_MAX)
+		ERR_AND_EXIT("chunk size is insane");
 
 	if (size > 0) {
 		// Regular chunk
-		size_t chunk_size = size; // Chunk body
+		ssize_t chunk_size = (ssize_t) size; // Chunk body
 		chunk_size += miniheader_end + 1; // Mini-header
 		chunk_size += 2; // Trailing CRLF
 		NOTE("HTTP: Chunk size: %lu", chunk_size);
-		return chunk_size;
+		return (ssize_t) chunk_size;
 	}
 
 	// Terminator chunk
 	// May have trailers in body
 	ssize_t full_size = -1;
-	for (size_t i = delimiter_start; i < max; i++) {
+	for (ssize_t i = delimiter_start; i < max; i++) {
 		uint8_t *buf = pkt->buffer;
 		if (i + 3 < max && (
 			buf[i] == '\r' &&     // CR
@@ -292,7 +300,7 @@ static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 	 */
 
 	// Find header
-	for (size_t i = 0; i < pkt->filled_size; i++) {
+	for (size_t i = 0; i < pkt->filled_size && i < SSIZE_MAX; i++) {
 		// two \r\n pairs
 		if ((i + 3) < pkt->filled_size &&
 		    '\r' == pkt->buffer[i] &&
@@ -315,13 +323,13 @@ static ssize_t packet_get_header_size(struct http_packet_t *pkt)
 	return -1;
 
 found:
-	return pkt->header_size;
+	return (ssize_t) pkt->header_size;
 }
 
 enum http_request_t packet_find_type(struct http_packet_t *pkt)
 {
 	enum http_request_t type = HTTP_UNSET;
-	ssize_t size = 0;
+	size_t size = 0;
 	/* Valid methods for determining http request
 	 * size are defined by W3 in RFC2616 section 4.4
 	 * link: http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
@@ -342,15 +350,16 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 	 * All cases require the packat to contain the full header.
 	 */
 
-	ssize_t header_size = packet_get_header_size(pkt);
-	if (header_size < 0) {
+	ssize_t header_size_raw = packet_get_header_size(pkt);
+	if (header_size_raw < 0) {
 		// We don't have the header yet
 		goto do_ret;
 	}
+	size_t header_size = (size_t) header_size_raw;
 
 	// Try Transfer-Encoding Chunked
 	char xfer_encode_str[] = "Transfer-Encoding: chunked";
-	int xfer_encode_str_size = sizeof(xfer_encode_str) - 1;
+	size_t xfer_encode_str_size = sizeof(xfer_encode_str) - 1;
 	uint8_t *xfer_encode_pos = memmem(pkt->buffer, header_size,
 	                                  xfer_encode_str,
 	                                  xfer_encode_str_size);
@@ -362,16 +371,17 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 
 	// Try Content-Length
 	char content_length_str[] = "Content-Length: ";
-	size = inspect_header_field(pkt, header_size, content_length_str,
-	                            sizeof(content_length_str) - 1);
-	if (size >= 0) {
-		size += header_size;
+	ssize_t contlen_size = inspect_header_field(pkt, header_size,
+			content_length_str, sizeof(content_length_str) - 1);
+	if (contlen_size >= 0) {
+		size = (size_t) contlen_size + header_size;
 		type = HTTP_CONTENT_LENGTH;
 		goto do_ret;
 	} 
 
 	// Get requests
 	if (doesMatch("GET", 3, pkt->buffer, pkt->filled_size)) {
+		// TODO: fix this
 		size = pkt->filled_size;
 		type = HTTP_HEADER_ONLY;
 		goto do_ret;
@@ -379,6 +389,7 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 
 	// No size was detectable yet header was found
 	type = HTTP_UNKNOWN;
+	size = 0;
 
 do_ret:
 	pkt->parent_message->claimed_size = size;
@@ -411,7 +422,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
 			NOTE("HTTP: Chunked header size is %ld bytes",
 				header_size);
-			pkt->expected_size = header_size;
+			pkt->expected_size = (size_t) header_size;
 			msg->claimed_size = 0;
 			goto pending_known;
 		}
@@ -438,7 +449,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 				goto pending_known;
 			}
 
-			pkt->expected_size = size;
+			pkt->expected_size = (size_t) size;
 			msg->claimed_size = 0;
 		}
 
@@ -447,7 +458,8 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 	if (HTTP_HEADER_ONLY == msg->type) {
 		// Note: we can only know it is header only
 		// when the buffer already contains the header.
-		pkt->expected_size = packet_get_header_size(pkt);
+		// So this next call cannot fail.
+		pkt->expected_size = (size_t) packet_get_header_size(pkt);
 		msg->claimed_size = pkt->expected_size;
 		goto pending_known;
 	}
@@ -575,5 +587,9 @@ ssize_t packet_expand(struct http_packet_t *pkt)
 	}
 	pkt->buffer = new_buf;
 	pkt->buffer_capacity = new_size;
-	return new_size - cur_size;
+
+	size_t diff = new_size - cur_size;
+	if (diff > SSIZE_MAX)
+		ERR_AND_EXIT("Buffer expanded beyond sane limit");
+	return (ssize_t) diff;
 }
