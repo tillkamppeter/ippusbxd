@@ -1,4 +1,2 @@
-- USB timeout, 65 seconds.
-- allocation of interfaces to small and large requests.
 - Must use CRLF for transfer: chunked messages
 - Rotates USB interfaces between TCP connections
