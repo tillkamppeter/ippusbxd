@@ -329,10 +329,10 @@ int usb_can_callback(struct usb_sock_t *usb)
 	return works;
 }
 
-static int usb_exit_on_unplug(libusb_context *context,
-                              libusb_device *device,
-			      libusb_hotplug_event event,
-			      void *call_data)
+static int LIBUSB_CALL usb_exit_on_unplug(libusb_context *context,
+					  libusb_device *device,
+					  libusb_hotplug_event event,
+					  void *call_data)
 {
 	IGNORE(context);
 	IGNORE(event);
@@ -347,6 +347,17 @@ static int usb_exit_on_unplug(libusb_context *context,
 		exit(0);
 
 	return 0;
+}
+
+static void *usb_pump_events(void *user_data)
+{
+	IGNORE(user_data);
+
+	for (;;) {
+		// NOTE: This is a blocking call so
+		// no need for sleep()
+		libusb_handle_events_completed(NULL, NULL);
+	}
 }
 
 void usb_register_callback(struct usb_sock_t *usb)
@@ -366,13 +377,15 @@ void usb_register_callback(struct usb_sock_t *usb)
 			LIBUSB_HOTPLUG_ENUMERATE,
 			g_options.vendor_id,
 			g_options.product_id,
-			LIBUSB_CLASS_PRINTER,
+			LIBUSB_HOTPLUG_MATCH_ANY,
 			&usb_exit_on_unplug,
 			NULL,
 			NULL);
-	if (status == LIBUSB_SUCCESS)
+	if (status == LIBUSB_SUCCESS) {
+		pthread_t thread_handle;
+		pthread_create(&thread_handle, NULL, &usb_pump_events, NULL);
 		NOTE("Registered unplug callback");
-	else
+	} else
 		ERR("Failed to register unplug callback");
 }
 
