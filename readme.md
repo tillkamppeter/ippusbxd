@@ -35,8 +35,11 @@ Building
 To build ippusbxd you must have the libusb 1.0 development headers installed along
 with cmake.
 
-Under Ubuntu and Debian this is acomplished by running:
+Under Ubuntu and Debian:
   sudo apt-get install libusb-1.0-0-dev cmake
+
+Under Fedora:
+  sudo yum install libusbx-devel.* cmake
 
 Once the dependencies are installed simply run:
   make
