@@ -1,0 +1,58 @@
+.TH IPPUSBXD 1
+.SH NAME
+ippusbxd \- userland driver for IPP-over-USB class printers
+.SH SYNOPSIS
+.B ippusbxd
+[\fB\-v \fR \fIVENDOR_ID\fR]
+[\fB\-m \fR \fIPRODUCT_ID\fR]
+[\fB\-s \fR \fISERIAL_NUMBER\fR]
+[\fB\-p \fR \fIPORT_NUMBER\fR]
+[\fB\-l\fR]
+[\fB\-d\fR]
+[\fB\-q\fR]
+[\fB\-n\fR]
+[\fB\-d\fR]
+.SH DESCRIPTION
+.B ippusbxd
+connects to a IPP-over-USB printer and exposes it to localhost.
+Upon successful startup the TCP port it is listening on is printed to stdout.
+It will shut itself down when the connected printer disconnects.
+By default \fBippusbxd\fR scans and connects to the first available IPP-over-USB
+printer.
+.SH OPTIONS
+.TP
+.BR \-h
+Show help message.
+.TP
+.BR \-v = \fIVENDOR_ID\fR
+USB vendor id of desired printer.
+.TP
+.BR \-m = \fIPRODUCT_ID\fR
+USB product id of desired printer.
+.TP
+.BR \-s = \fISERIAL_NUMBER\fR
+Serial number of desired printer.
+.TP
+.BR \-p = \fIPORT_NUMBER\fR
+Port number ippusbxd will expose the printer over.
+.TP
+.BR \-l
+Send all logging to syslog.
+.TP
+.BR \-q
+Enable verbose logging.
+.TP
+.BR \-n
+Enables no fork mode.
+Disables deamonization.
+.TP
+.BR \-d
+Enables debug mode.
+Implies \-q and \-n.
+Verbose logging will be sent to stdout
+.SH EXAMPLES
+To bind to the first available IPP-over-USB printer and see trace statements:
+.PP
+.nf
+.RS
+ippusbxd \-d
