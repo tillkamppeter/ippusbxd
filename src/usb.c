@@ -631,7 +631,6 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			if (packet_expand(pkt) < 0)
 				ERR_AND_EXIT("Failed to ensure room for usb pkt");
 
-		NOTE("USB: Getting %d bytes of %d", read_size, pkt->expected_size);
 		int gotten_size = 0;
 		int status = libusb_bulk_transfer(
 		                      conn->parent->printer,
@@ -707,7 +706,11 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			}
 		}
 
-		NOTE("USB: Got %d bytes", gotten_size);
+		if (gotten_size) {
+			NOTE("USB: Getting %d bytes of %d",
+					read_size, pkt->expected_size);
+			NOTE("USB: Got %d bytes", gotten_size);
+		}
 		packet_mark_received(pkt, (size_t)gotten_size);
 		read_size_ulong = packet_pending_bytes(pkt);
 	}

@@ -526,8 +526,11 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
 	msg->received_size += received;
 
 	pkt->filled_size += received;
-	NOTE("HTTP: got %lu bytes so: pkt has %lu bytes, msg has %lu bytes",
-		received, pkt->filled_size, msg->received_size);
+	if (received) {
+		NOTE("HTTP: got %lu bytes so: pkt has %lu bytes, "
+			"msg has %lu bytes",
+			received, pkt->filled_size, msg->received_size);
+	}
 
 	packet_check_completion(pkt);
 
