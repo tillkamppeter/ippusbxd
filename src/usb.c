@@ -617,13 +617,13 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	if (read_size_ulong == 0)
 		return pkt;
 
-	int times_staled = 0;
+	uint64_t times_staled = 0;
 	while (read_size_ulong > 0 && !msg->is_completed) {
 		if (read_size_ulong >= INT_MAX)
 			goto cleanup;
 		int read_size = (int)read_size_ulong;
 
-		// Ensure read_size is multiple of usb packets
+		// Pad read_size to multiple of usb's max packet size
 		read_size += (512 - (read_size % 512)) % 512;
 
 		// Expand buffer if needed
@@ -656,12 +656,46 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			times_staled = 0;
 			usb_conn_mark_moving(conn);
 		} else {
+
+			// Performance Test ---------------
+			// How long we sleep here has a
+			// dramatic affect on how long it
+			// takes to load a page.
+			// Earlier versions waited a tenth
+			// of a second which resulted in
+			// minute long page loads.
+			// On my HP printer the most obvious
+			// bottleneck is the "Unified.js" file
+			// which weighs 517.87KB. My profiling
+			// looked at how shortening this sleep
+			// could improve this file's load times.
+			// The cycle count is from perf and
+			// covers an entire page load.
+			//
+			// Below are my results:
+			// 1 in    100 == 2447ms, 261M cycles
+			// 1 in  1,000 == 483ms,  500M cycles
+			// 5 in 10,000 == 433ms,  800M cycles
+			// 1 in 10,000 == 320ms, 3000M cycles
+			#define TIMEOUT_RATIO (10000 / 5)
+			static uint64_t stale_timeout = CONN_STALE_THRESHHOLD *
+			                                TIMEOUT_RATIO;
+			static uint64_t crash_timeout = PRINTER_CRASH_TIMEOUT *
+			                                TIMEOUT_RATIO;
+			static uint64_t skip_timeout  = 1000000000 /
+			                                TIMEOUT_RATIO;
+
+			struct timespec sleep_dur;
+			sleep_dur.tv_sec = 0;
+			sleep_dur.tv_nsec = skip_timeout;
+			nanosleep(&sleep_dur, NULL);
+
 			times_staled++;
-			if (times_staled > CONN_STALE_THRESHHOLD) {
+			if (times_staled > stale_timeout) {
 				usb_conn_mark_staled(conn);
 
 				if (usb_all_conns_staled(conn->parent) &&
-				    times_staled > PRINTER_CRASH_TIMEOUT) {
+				    times_staled > crash_timeout) {
 					ERR("USB timedout, dropping data");
 					goto cleanup;
 				}
@@ -671,12 +705,6 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 						pkt->filled_size,
 						pkt->buffer);
 			}
-
-			// Sleep for tenth of a second
-			struct timespec sleep_dur;
-			sleep_dur.tv_sec = 0;
-			sleep_dur.tv_nsec = 100000000;
-			nanosleep(&sleep_dur, NULL);
 		}
 
 		NOTE("USB: Got %d bytes", gotten_size);

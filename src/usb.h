@@ -17,8 +17,9 @@
 #include <libusb.h>
 #include <semaphore.h>
 
-static const int PRINTER_CRASH_TIMEOUT = 60;
-static const int CONN_STALE_THRESHHOLD = 6;
+// In seconds
+#define PRINTER_CRASH_TIMEOUT 60
+#define CONN_STALE_THRESHHOLD 6
 
 struct usb_interface {
 	uint8_t interface_number;
