@@ -18,7 +18,7 @@
 #include <semaphore.h>
 
 // In seconds
-#define PRINTER_CRASH_TIMEOUT 60
+#define PRINTER_CRASH_TIMEOUT (60 * 60 * 6)
 #define CONN_STALE_THRESHHOLD 6
 
 struct usb_interface {
