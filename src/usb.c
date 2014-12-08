@@ -372,6 +372,8 @@ static void *usb_pump_events(void *user_data)
 		// no need for sleep()
 		libusb_handle_events_completed(NULL, NULL);
 	}
+
+	return NULL;
 }
 
 void usb_register_callback(struct usb_sock_t *usb)
