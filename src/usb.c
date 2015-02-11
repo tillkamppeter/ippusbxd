@@ -195,7 +195,7 @@ found_device:
 	                                      (uint8_t)selected_config,
 	                                      &config);
 	if (status != 0 || config == NULL) {
-		ERR("Failed to aquire config descriptor");
+		ERR("Failed to acquire config descriptor");
 		goto error;
 	}
 
@@ -454,7 +454,7 @@ static int usb_all_conns_staled(struct usb_sock_t *usb)
 	return staled;
 }
 
-struct usb_conn_t *usb_conn_aquire(struct usb_sock_t *usb,
+struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb,
                                    int is_high_priority)
 {
 	int used_high_priority = 0;
