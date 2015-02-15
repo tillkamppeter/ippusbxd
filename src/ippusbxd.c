@@ -61,13 +61,13 @@ static void *service_connection(void *arg_void)
 				ERR_AND_EXIT("Got null packet from tcp");
 			}
 			if (usb == NULL) {
-				usb = usb_conn_aquire(arg->usb_sock, 1);
+				usb = usb_conn_acquire(arg->usb_sock, 1);
 				if (usb == NULL) {
-					ERR("Failed to aquire usb interface");
+					ERR("Failed to acquire usb interface");
 					packet_free(pkt);
 					goto cleanup_subconn;
 				}
-				NOTE("Interface #%d: aquired usb conn",
+				NOTE("Interface #%d: acquired usb conn",
 						usb->interface_index);
 			}
 
