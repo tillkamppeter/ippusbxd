@@ -158,9 +158,11 @@ static void start_daemon()
 	fflush(stdout);
 
 	// Lose connection to caller
-	if (!g_options.nofork_mode && fork() > 0)
+	uint16_t pid;
+	if (!g_options.nofork_mode && (pid = fork()) > 0) {
+		printf("%u|", pid);
 		exit(0);
-
+	}
 
 	// Register for unplug event
 	if (usb_can_callback(usb_sock))
