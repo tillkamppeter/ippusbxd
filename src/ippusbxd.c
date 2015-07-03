@@ -58,7 +58,8 @@ static void *service_connection(void *arg_void)
 					NOTE("Client closed connection\n");
 					goto cleanup_subconn;
 				}
-				ERR_AND_EXIT("Got null packet from tcp");
+				ERR("Got null packet from tcp");
+				goto cleanup_subconn;
 			}
 			if (usb == NULL) {
 				usb = usb_conn_acquire(arg->usb_sock, 1);
