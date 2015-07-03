@@ -23,6 +23,7 @@ enum log_target {
 struct options {
 	// Runtime configuration
 	uint16_t desired_port;
+	int only_desired_port;
 	enum log_target log_destination;
 
 	// Behavior

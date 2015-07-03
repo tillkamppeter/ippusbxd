@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "options.h"
 #include "logging.h"
 #include "tcp.h"
 
@@ -53,8 +54,9 @@ struct tcp_sock_t *tcp_open(uint16_t port)
 	if (bind(this->sd,
 	        (struct sockaddr *)&addr,
 	        sizeof addr) < 0) {
-		ERR("Bind on port failed. "
-		    "Requested port may be taken or require root permissions.");
+		if (g_options.only_desired_port == 1)
+			ERR("Bind on port failed. "
+			    "Requested port may be taken or require root permissions.");
 		goto error;
 	}
 
