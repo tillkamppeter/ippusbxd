@@ -566,16 +566,16 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 	while (pending > 0) {
 		int to_send = (int)pending;
 
-		NOTE("USB: want to send %d bytes", to_send);
+		NOTE("P %p: USB: want to send %d bytes", pkt, to_send);
 		int status = libusb_bulk_transfer(conn->parent->printer,
 		                                  conn->interface->endpoint_out,
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
 		if (status == LIBUSB_ERROR_TIMEOUT) {
-			NOTE("USB: send timed out, retrying");
+		  NOTE("P %p: USB: send timed out, retrying", pkt);
 
 			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT)
-				ERR_AND_EXIT("Usb send fully timed out");
+			  ERR_AND_EXIT("P %p: Usb send fully timed out", pkt);
 
 			// Sleep for tenth of a second
 			struct timespec sleep_dur;
@@ -586,18 +586,18 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		}
 
 		if (status == LIBUSB_ERROR_NO_DEVICE)
-			ERR_AND_EXIT("Printer has been disconnected");
+		  ERR_AND_EXIT("P %p: Printer has been disconnected", pkt);
 		if (status < 0)
-			ERR_AND_EXIT("USB: send failed with status %s",
-				libusb_error_name(status));
+		  ERR_AND_EXIT("P %p: USB: send failed with status %s",
+			       pkt, libusb_error_name(status));
 		if (size_sent < 0)
-			ERR_AND_EXIT("Unexpected negative size_sent");
+		  ERR_AND_EXIT("P %p: Unexpected negative size_sent", pkt);
 
 		pending -= (size_t) size_sent;
 		sent += (size_t) size_sent;
-		NOTE("USB: sent %d bytes", size_sent);
+		NOTE("P %p: USB: sent %d bytes", pkt, size_sent);
 	}
-	NOTE("USB: sent %d bytes in total", sent);
+	NOTE("P %p: USB: sent %d bytes in total", pkt, sent);
 }
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)

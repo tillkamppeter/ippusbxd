@@ -43,67 +43,71 @@ static void *service_connection(void *arg_void)
 		struct http_message_t *client_msg = NULL;
 
 		// Client's request
-		NOTE("Client msg starting");
 		client_msg = http_message_new();
 		if (client_msg == NULL) {
-			ERR("Failed to create message");
+			ERR("Failed to create client message");
 			break;
 		}
+		NOTE("M %p: Client msg starting", client_msg);
 
 		while (!client_msg->is_completed) {
 			struct http_packet_t *pkt;
 			pkt = tcp_packet_get(arg->tcp, client_msg);
 			if (pkt == NULL) {
 				if (arg->tcp->is_closed) {
-					NOTE("Client closed connection\n");
+					NOTE("M %p: Client closed connection\n", client_msg);
 					goto cleanup_subconn;
 				}
-				ERR("Got null packet from tcp");
+				ERR("M %p: Got null packet from tcp", client_msg);
 				goto cleanup_subconn;
 			}
 			if (usb == NULL) {
 				usb = usb_conn_acquire(arg->usb_sock, 1);
 				if (usb == NULL) {
-					ERR("Failed to acquire usb interface");
+					ERR("M %p: Failed to acquire usb interface", client_msg);
 					packet_free(pkt);
 					goto cleanup_subconn;
 				}
-				NOTE("Interface #%d: acquired usb conn",
-						usb->interface_index);
+				NOTE("M %p: Interface #%d: acquired usb conn",
+				     client_msg,
+				     usb->interface_index);
 			}
 
-			NOTE("Pkt from tcp\n===\n%.*s\n===", (int)pkt->filled_size, pkt->buffer);
+			NOTE("M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%.*s\n===", client_msg, pkt, pkt->filled_size, (int)pkt->filled_size, pkt->buffer);
 			usb_conn_packet_send(usb, pkt);
+			NOTE("M %p P %p: Interface #%d: Client pkt done",
+			     client_msg, pkt, usb->interface_index);
 			packet_free(pkt);
 		}
+		NOTE("M %p: Interface #%d: Client msg completed\n", client_msg,
+				usb->interface_index);
 		message_free(client_msg);
 		client_msg = NULL;
-		NOTE("Interface #%d: Client msg completed\n",
-				usb->interface_index);
 
 
 		// Server's response
-		NOTE("Interface #%d: Server msg starting",
-				usb->interface_index);
 		server_msg = http_message_new();
 		if (server_msg == NULL) {
-			ERR("Failed to create message");
+			ERR("Failed to create server message");
 			goto cleanup_subconn;
 		}
+		NOTE("M %p: Interface #%d: Server msg starting", server_msg,
+				usb->interface_index);
 		while (!server_msg->is_completed) {
 			struct http_packet_t *pkt;
 			pkt = usb_conn_packet_get(usb, server_msg);
 			if (pkt == NULL)
 				break;
 
-			NOTE("Pkt from usb\n===\n%.*s\n===",
-					(int)pkt->filled_size, pkt->buffer);
+			NOTE("M %p P %p: Pkt from usb (buffer size: %d)\n===\n%.*s\n===",
+			     server_msg, pkt, pkt->filled_size,
+			     (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
+			NOTE("M %p P %p: Interface #%d: Server pkt done",
+			     server_msg, pkt, usb->interface_index);
 			packet_free(pkt);
-			NOTE("Interface #%d: Server pkt done",
-					usb->interface_index);
 		}
-		NOTE("Interface #%d: Server msg completed\n",
+		NOTE("M %p: Interface #%d: Server msg completed\n", server_msg,
 				usb->interface_index);
 
 cleanup_subconn:

@@ -54,6 +54,7 @@ static void packet_check_completion(struct http_packet_t *pkt)
 	// Msg full
 	if (msg->claimed_size && msg->received_size >= msg->claimed_size) {
 		msg->is_completed = 1;
+		NOTE("http: Message completed: Received size > claimed size");
 
 		// Sanity check
 		if (msg->spare_filled > 0)
@@ -61,8 +62,10 @@ static void packet_check_completion(struct http_packet_t *pkt)
 	}
 
 	// Pkt full
-	if (pkt->expected_size && pkt->filled_size >= pkt->expected_size)
+	if (pkt->expected_size && pkt->filled_size >= pkt->expected_size) {
 		pkt->is_completed = 1;
+		NOTE("http: Packet completed: Packet full");
+	}
 
 	// Pkt over capacity
 	if (pkt->filled_size > pkt->buffer_capacity) {

@@ -141,6 +141,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 
 		packet_mark_received(pkt, (unsigned) gotten_size);
 		want_size = packet_pending_bytes(pkt);
+		NOTE("TCP: Want more %d bytes; Message %scompleted", want_size, msg->is_completed ? "" : "not ");
 	}
 
 	NOTE("TCP: Received %lu bytes", pkt->filled_size);
