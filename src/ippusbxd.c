@@ -61,7 +61,7 @@ static void *service_connection(void *arg_void)
 				ERR("M %p: Got null packet from tcp", client_msg);
 				goto cleanup_subconn;
 			}
-			if (usb == NULL) {
+			if (usb == NULL && arg->usb_sock != NULL) {
 				usb = usb_conn_acquire(arg->usb_sock, 1);
 				if (usb == NULL) {
 					ERR("M %p: Failed to acquire usb interface", client_msg);
@@ -74,13 +74,20 @@ static void *service_connection(void *arg_void)
 			}
 
 			NOTE("M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%.*s\n===", client_msg, pkt, pkt->filled_size, (int)pkt->filled_size, pkt->buffer);
-			usb_conn_packet_send(usb, pkt);
-			NOTE("M %p P %p: Interface #%d: Client pkt done",
-			     client_msg, pkt, usb->interface_index);
+			// In no-printer mode we simply ignore passing the
+			// client message on to the printer
+			if (arg->usb_sock != NULL) {
+				usb_conn_packet_send(usb, pkt);
+				NOTE("M %p P %p: Interface #%d: Client pkt done",
+				     client_msg, pkt, usb->interface_index);
+			}
 			packet_free(pkt);
 		}
-		NOTE("M %p: Interface #%d: Client msg completed\n", client_msg,
-				usb->interface_index);
+		if (usb != NULL)
+			NOTE("M %p: Interface #%d: Client msg completed\n", client_msg,
+			     usb->interface_index);
+		else
+			NOTE("M %p: Client msg completed\n", client_msg);
 		message_free(client_msg);
 		client_msg = NULL;
 
@@ -91,24 +98,49 @@ static void *service_connection(void *arg_void)
 			ERR("Failed to create server message");
 			goto cleanup_subconn;
 		}
-		NOTE("M %p: Interface #%d: Server msg starting", server_msg,
-				usb->interface_index);
+		if (usb != NULL)
+			NOTE("M %p: Interface #%d: Server msg starting", server_msg,
+			     usb->interface_index);
+		else
+			NOTE("M %p: Server msg starting", server_msg);
 		while (!server_msg->is_completed) {
 			struct http_packet_t *pkt;
-			pkt = usb_conn_packet_get(usb, server_msg);
-			if (pkt == NULL)
-				break;
+			if (arg->usb_sock != NULL) {
+				pkt = usb_conn_packet_get(usb, server_msg);
+				if (pkt == NULL)
+					break;
+			} else {
+				// In no-printer mode we "invent" the answer
+				// of the printer, a simple HTML message as
+				// a pseudo web interface
+				pkt = packet_new(server_msg);
+				snprintf((char*)(pkt->buffer),
+					 pkt->buffer_capacity - 1,
+					 "<html><h2>ippusbxd</h2><p>Debug/development mode without connection to IPP-over-USB printer</p></html>\n");
+				pkt->filled_size = 103;
+				// End the TCP connection, so that a
+				// web browser does not wait for more data
+				server_msg->is_completed = 1;
+				arg->tcp->is_closed = 1;
+			}
 
 			NOTE("M %p P %p: Pkt from usb (buffer size: %d)\n===\n%.*s\n===",
 			     server_msg, pkt, pkt->filled_size,
 			     (int)pkt->filled_size, pkt->buffer);
 			tcp_packet_send(arg->tcp, pkt);
-			NOTE("M %p P %p: Interface #%d: Server pkt done",
-			     server_msg, pkt, usb->interface_index);
+			if (usb != NULL)
+				NOTE("M %p P %p: Interface #%d: Server pkt done",
+				     server_msg, pkt, usb->interface_index);
+			else
+				NOTE("M %p P %p: Server pkt done",
+				     server_msg, pkt);
 			packet_free(pkt);
 		}
-		NOTE("M %p: Interface #%d: Server msg completed\n", server_msg,
-				usb->interface_index);
+		if (usb != NULL)
+			NOTE("M %p: Interface #%d: Server msg completed\n", server_msg,
+			     usb->interface_index);
+		else
+			NOTE("M %p: Server msg completed\n", server_msg);
 
 cleanup_subconn:
 		if (client_msg != NULL)
@@ -128,10 +160,14 @@ cleanup_subconn:
 
 static void start_daemon()
 {
-	// Capture USB device
-	struct usb_sock_t *usb_sock = usb_open();
-	if (usb_sock == NULL)
-		goto cleanup_usb;
+	// Capture USB device if not in no-printer mode
+	struct usb_sock_t *usb_sock;
+	if (g_options.noprinter_mode == 0) {
+		usb_sock = usb_open();
+		if (usb_sock == NULL)
+			goto cleanup_usb;
+	} else
+		usb_sock = NULL;
 
 	// Capture a socket
 	uint16_t desired_port = g_options.desired_port;
@@ -227,7 +263,7 @@ int main(int argc, char *argv[])
 	g_options.log_destination = LOGGING_STDERR;
 	g_options.only_desired_port = 1;
 
-	while ((c = getopt(argc, argv, "qnhdp:P:s:lv:m:")) != -1) {
+	while ((c = getopt(argc, argv, "qnhdp:P:s:lv:m:N")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -277,6 +313,9 @@ int main(int argc, char *argv[])
 		case 's':
 			g_options.serial_num = (unsigned char *)optarg;
 			break;
+		case 'N':
+			g_options.noprinter_mode = 1;
+			break;
 		}
 	}
 
@@ -294,7 +333,9 @@ int main(int argc, char *argv[])
 		"  -l           Redirect logging to syslog\n"
 		"  -q           Enable verbose tracing\n"
 		"  -d           Debug mode for verbose output and no fork\n"
-		"  -n           No fork mode\n"
+		"  -n           No-fork mode\n"
+		"  -N           No-printer mode, debug/developer mode which makes ippusbxd\n"
+		"               run without IPP-over-USB printer\n"
 		, argv[0]);
 		return 0;
 	}

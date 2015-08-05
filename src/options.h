@@ -30,6 +30,7 @@ struct options {
 	int help_mode;
 	int verbose_mode;
 	int nofork_mode;
+        int noprinter_mode;
 
 	// Printer indentity
 	unsigned char *serial_num;
