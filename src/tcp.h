@@ -40,10 +40,12 @@ struct tcp_conn_t {
 };
 
 struct tcp_sock_t *tcp_open(uint16_t);
+struct tcp_sock_t *tcp6_open(uint16_t);
 void tcp_close(struct tcp_sock_t *);
 uint16_t tcp_port_number_get(struct tcp_sock_t *);
 
-struct tcp_conn_t *tcp_conn_accept(struct tcp_sock_t *);
+struct tcp_conn_t *tcp_conn_select(struct tcp_sock_t *sock,
+				   struct tcp_sock_t *sock6);
 void tcp_conn_close(struct tcp_conn_t *);
 
 struct http_packet_t *tcp_packet_get(struct tcp_conn_t *,
