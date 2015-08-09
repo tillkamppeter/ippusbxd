@@ -116,8 +116,8 @@ static void *service_connection(void *arg_void)
 				pkt = packet_new(server_msg);
 				snprintf((char*)(pkt->buffer),
 					 pkt->buffer_capacity - 1,
-					 "<html><h2>ippusbxd</h2><p>Debug/development mode without connection to IPP-over-USB printer</p></html>\n");
-				pkt->filled_size = 103;
+					 "HTTP/1.1 200 OK\r\nContent-Type: text/html; name=ippusbxd.html; charset=UTF-8\r\n\r\n<html><h2>ippusbxd</h2><p>Debug/development mode without connection to IPP-over-USB printer</p></html>\r\n");
+				pkt->filled_size = 183;
 				// End the TCP connection, so that a
 				// web browser does not wait for more data
 				server_msg->is_completed = 1;
