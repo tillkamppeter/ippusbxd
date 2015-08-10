@@ -242,35 +242,28 @@ struct tcp_conn_t *tcp_conn_select(struct tcp_sock_t *sock,
 		goto error;
 	}
 	fd_set rfds;
-	struct timeval tv;
 	int retval = 0;
 	int nfds = 0;
-	while (retval == 0) {
-		FD_ZERO(&rfds);
-		if (sock) {
-			FD_SET(sock->sd, &rfds);
-			nfds = sock->sd;
-		}
-		if (sock6) {
-			FD_SET(sock6->sd, &rfds);
-			if (sock6->sd > nfds)
-				nfds = sock6->sd;
-		}
-		if (nfds == 0) {
-			ERR("No valid TCP socket supplied.");
-			goto error;
-		}
-		nfds += 1;
-		/* Wait up to five seconds. */
-		tv.tv_sec = 5;
-		tv.tv_usec = 0;
-		retval = select(nfds, &rfds, NULL, NULL, &tv);
-		if (retval == -1) {
-			ERR("Failed to open tcp connection");
-			goto error;
-		}
+	FD_ZERO(&rfds);
+	if (sock) {
+		FD_SET(sock->sd, &rfds);
+		nfds = sock->sd;
 	}
-
+	if (sock6) {
+		FD_SET(sock6->sd, &rfds);
+		if (sock6->sd > nfds)
+			nfds = sock6->sd;
+	}
+	if (nfds == 0) {
+		ERR("No valid TCP socket supplied.");
+		goto error;
+	}
+	nfds += 1;
+	retval = select(nfds, &rfds, NULL, NULL, NULL);
+	if (retval < 1) {
+		ERR("Failed to open tcp connection");
+		goto error;
+	}
 	if (sock && FD_ISSET(sock->sd, &rfds)) {
 		conn->sd = accept(sock->sd, NULL, NULL);
 		NOTE ("Using IPv4");
