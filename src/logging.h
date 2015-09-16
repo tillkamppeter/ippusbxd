@@ -50,4 +50,4 @@ enum log_level {
 #define ERR_AND_EXIT(...) do { ERR(__VA_ARGS__); exit(-1);} while (0)
 
 void BASE_LOG(enum log_level, const char *, ...);
-
+char* hexdump (void *addr, int len);

@@ -700,9 +700,9 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 				}
 
 				if (pkt->filled_size > 0)
-					NOTE("Packet so far \n%.*s\n",
-						pkt->filled_size,
-						pkt->buffer);
+					NOTE("Packet so far \n===\n%s===\n",
+					     hexdump(pkt->buffer,
+						     pkt->filled_size));
 			}
 		}
 
