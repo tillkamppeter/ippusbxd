@@ -28,6 +28,8 @@
 
 #define IGNORE(x) (void)(x)
 
+static int bus, dev_addr;
+
 static int is_ippusb_interface(const struct libusb_interface_descriptor *interf)
 {
 	return interf->bInterfaceClass == 0x07 &&
@@ -79,19 +81,28 @@ static int is_our_device(libusb_device *dev,
 
 	libusb_device_handle *handle = NULL;
 	int status = libusb_open(dev, &handle);
-	if (status != 0)
-		return 0;
+	if (status != 0) {
+		// Device turned off or disconnected, we cannot retrieve its
+		// serial number any more, so we identify it via bus and device
+		// addresses
+		return (bus == libusb_get_bus_number(dev) &&
+			dev_addr == libusb_get_device_address(dev));
+	} else {
+		// Device is turned on and connected, read out its serial number
+		// and use the serial number for identification
+		status = libusb_get_string_descriptor_ascii(handle,
+							    desc.iSerialNumber,
+							    serial, SERIAL_MAX);
+		libusb_close(handle);
 
-	status = libusb_get_string_descriptor_ascii(handle,
-			desc.iSerialNumber, serial, SERIAL_MAX);
-	libusb_close(handle);
+		if (status <= 0) {
+			WARN("Failed to get serial from device");
+			return 0;
+		}
 
-	if (status <= 0) {
-		WARN("Failed to get serial from device");
-		return 0;
+		return strcmp((char *)serial,
+			      (char *)g_options.serial_num) == 0;
 	}
-
-	return strcmp((char *)serial, (char *)g_options.serial_num) == 0;
 }
 
 struct usb_sock_t *usb_open()
@@ -128,6 +139,10 @@ struct usb_sock_t *usb_open()
 
 		if (!is_our_device(candidate, desc))
 			continue;
+
+		bus = libusb_get_bus_number(candidate);
+		dev_addr = libusb_get_device_address(candidate);
+		NOTE("Printer connected on bus %d device %d", bus, dev_addr);
 
 		for (uint8_t config_num = 0;
 		     config_num < desc.bNumConfigurations;
