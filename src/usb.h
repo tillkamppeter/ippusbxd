@@ -27,6 +27,7 @@ struct usb_interface {
 	int interface_alt;
 	uint8_t endpoint_in;
 	uint8_t endpoint_out;
+	sem_t lock;
 };
 
 struct usb_sock_t {
@@ -45,8 +46,6 @@ struct usb_sock_t {
 	uint32_t num_taken;
 
 	uint32_t *interface_pool;
-	sem_t pool_low_priority_lock;
-	sem_t pool_high_priority_lock;
 
 };
 
@@ -54,7 +53,6 @@ struct usb_conn_t {
 	struct usb_sock_t *parent;
 	struct usb_interface *interface;
 	uint32_t interface_index;
-	int is_high_priority;
 	int is_staled;
 };
 
@@ -64,7 +62,7 @@ void usb_close(struct usb_sock_t *);
 int usb_can_callback(struct usb_sock_t *);
 void usb_register_callback(struct usb_sock_t *);
 
-struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *, int);
+struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *);
 void usb_conn_release(struct usb_conn_t *);
 
 void usb_conn_packet_send(struct usb_conn_t *, struct http_packet_t *);

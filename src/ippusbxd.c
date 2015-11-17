@@ -38,8 +38,8 @@ static void *service_connection(void *arg_void)
 		(struct service_thread_param *)arg_void;
 
 	// clasify priority
+	struct usb_conn_t *usb = NULL;
 	while (!arg->tcp->is_closed) {
-		struct usb_conn_t *usb = NULL;
 		struct http_message_t *server_msg = NULL;
 		struct http_message_t *client_msg = NULL;
 
@@ -63,7 +63,7 @@ static void *service_connection(void *arg_void)
 				goto cleanup_subconn;
 			}
 			if (usb == NULL && arg->usb_sock != NULL) {
-				usb = usb_conn_acquire(arg->usb_sock, 1);
+				usb = usb_conn_acquire(arg->usb_sock);
 				if (usb == NULL) {
 					ERR("M %p: Failed to acquire usb interface", client_msg);
 					packet_free(pkt);
@@ -144,12 +144,16 @@ static void *service_connection(void *arg_void)
 			NOTE("M %p: Server msg completed\n", server_msg);
 
 cleanup_subconn:
+		if (usb != NULL && arg->tcp->is_closed) {
+			NOTE("M %p: Interface #%d: releasing usb conn",
+			     client_msg, usb->interface_index);
+			usb_conn_release(usb);
+			usb = NULL;
+		}
 		if (client_msg != NULL)
 			message_free(client_msg);
 		if (server_msg != NULL)
 			message_free(server_msg);
-		if (usb != NULL)
-			usb_conn_release(usb);
 	}
 
 
