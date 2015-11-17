@@ -561,7 +561,7 @@ void usb_conn_release(struct usb_conn_t *conn)
 void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 {
 	int size_sent = 0;
-	const int timeout = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+	const int timeout = 1000; // 1 sec
 	int num_timeouts = 0;
 	size_t sent = 0;
 	size_t pending = pkt->filled_size;
@@ -574,9 +574,9 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
 		if (status == LIBUSB_ERROR_TIMEOUT) {
-		  NOTE("P %p: USB: send timed out, retrying", pkt);
+			NOTE("P %p: USB: send timed out, retrying", pkt);
 
-			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT)
+			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT_RECEIVE)
 			  ERR_AND_EXIT("P %p: Usb send fully timed out", pkt);
 
 			// Sleep for tenth of a second
@@ -614,7 +614,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	}
 
 	// File packet
-	const int timeout = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+	const int timeout = 1000; // 1 sec
 	size_t read_size_ulong = packet_pending_bytes(pkt);
 	if (read_size_ulong == 0)
 		return pkt;
@@ -648,6 +648,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			ERR("bulk xfer failed with error code %d", status);
 			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
+		} else if (status == LIBUSB_ERROR_TIMEOUT) {
+			ERR("bulk xfer failed with timeout");
+			ERR("tried reading %d bytes", read_size);
+			break;
 		}
 
 		if (gotten_size < 0)
@@ -679,12 +683,12 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			// 5 in 10,000 == 433ms,  800M cycles
 			// 1 in 10,000 == 320ms, 3000M cycles
 			#define TIMEOUT_RATIO (10000 / 5)
-			static uint64_t stale_timeout = CONN_STALE_THRESHHOLD *
-			                                TIMEOUT_RATIO;
-			static uint64_t crash_timeout = PRINTER_CRASH_TIMEOUT *
-			                                TIMEOUT_RATIO;
-			static uint64_t skip_timeout  = 1000000000 /
-			                                TIMEOUT_RATIO;
+			static uint64_t stale_timeout =
+			  CONN_STALE_THRESHHOLD * TIMEOUT_RATIO;
+			static uint64_t crash_timeout =
+			  PRINTER_CRASH_TIMEOUT_ANSWER * TIMEOUT_RATIO;
+			static uint64_t skip_timeout  =
+			  1000000000 / TIMEOUT_RATIO;
 
 			struct timespec sleep_dur;
 			sleep_dur.tv_sec = 0;
@@ -692,19 +696,24 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			nanosleep(&sleep_dur, NULL);
 
 			times_staled++;
-			if (times_staled > stale_timeout) {
-				usb_conn_mark_staled(conn);
-
-				if (usb_all_conns_staled(conn->parent) &&
-				    times_staled > crash_timeout) {
-					ERR("USB timedout, dropping data");
-					goto cleanup;
-				}
-
+			if (times_staled % TIMEOUT_RATIO == 0) {
+				NOTE("No bytes received for %d sec.",
+				     times_staled / TIMEOUT_RATIO);
 				if (pkt->filled_size > 0)
 					NOTE("Packet so far \n===\n%s===\n",
 					     hexdump(pkt->buffer,
 						     pkt->filled_size));
+			}
+ 
+			if (times_staled > stale_timeout) {
+				usb_conn_mark_staled(conn);
+
+				if (pkt->filled_size > 0 ||
+				    usb_all_conns_staled(conn->parent) ||
+				    times_staled > crash_timeout) {
+					ERR("USB timed out, giving up waiting for more data");
+					break;
+				}
 			}
 		}
 
@@ -718,6 +727,9 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 	}
 	NOTE("USB: Received %d bytes of %d with type %d",
 			pkt->filled_size, pkt->expected_size, msg->type);
+
+	if (pkt->filled_size == 0)
+		goto cleanup;
 
 	return pkt;
 

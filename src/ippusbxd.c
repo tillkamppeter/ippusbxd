@@ -39,6 +39,7 @@ static void *service_connection(void *arg_void)
 
 	// clasify priority
 	struct usb_conn_t *usb = NULL;
+	int usb_failed = 0;
 	while (!arg->tcp->is_closed) {
 		struct http_message_t *server_msg = NULL;
 		struct http_message_t *client_msg = NULL;
@@ -69,6 +70,7 @@ static void *service_connection(void *arg_void)
 					packet_free(pkt);
 					goto cleanup_subconn;
 				}
+				usb_failed = 0;
 				NOTE("M %p: Interface #%d: acquired usb conn",
 				     client_msg,
 				     usb->interface_index);
@@ -108,8 +110,10 @@ static void *service_connection(void *arg_void)
 			struct http_packet_t *pkt;
 			if (arg->usb_sock != NULL) {
 				pkt = usb_conn_packet_get(usb, server_msg);
-				if (pkt == NULL)
+				if (pkt == NULL) {
+					usb_failed = 1;
 					break;
+				}
 			} else {
 				// In no-printer mode we "invent" the answer
 				// of the printer, a simple HTML message as
@@ -144,9 +148,9 @@ static void *service_connection(void *arg_void)
 			NOTE("M %p: Server msg completed\n", server_msg);
 
 cleanup_subconn:
-		if (usb != NULL && arg->tcp->is_closed) {
+		if (usb != NULL && (arg->tcp->is_closed || usb_failed == 1)) {
 			NOTE("M %p: Interface #%d: releasing usb conn",
-			     client_msg, usb->interface_index);
+			     server_msg, usb->interface_index);
 			usb_conn_release(usb);
 			usb = NULL;
 		}
