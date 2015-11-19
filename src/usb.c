@@ -573,27 +573,29 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		                                  conn->interface->endpoint_out,
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
+		if (status == LIBUSB_ERROR_NO_DEVICE)
+			ERR_AND_EXIT("P %p: Printer has been disconnected",
+				     pkt);
 		if (status == LIBUSB_ERROR_TIMEOUT) {
 			NOTE("P %p: USB: send timed out, retrying", pkt);
 
 			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT_RECEIVE)
-			  ERR_AND_EXIT("P %p: Usb send fully timed out", pkt);
+				ERR_AND_EXIT("P %p: Usb send fully timed out",
+					     pkt);
 
 			// Sleep for tenth of a second
 			struct timespec sleep_dur;
 			sleep_dur.tv_sec = 0;
 			sleep_dur.tv_nsec = 100000000;
 			nanosleep(&sleep_dur, NULL);
-			continue;
-		}
-
-		if (status == LIBUSB_ERROR_NO_DEVICE)
-		  ERR_AND_EXIT("P %p: Printer has been disconnected", pkt);
-		if (status < 0)
-		  ERR_AND_EXIT("P %p: USB: send failed with status %s",
-			       pkt, libusb_error_name(status));
+			if (size_sent == 0)
+				continue;
+		} else if (status < 0)
+			ERR_AND_EXIT("P %p: USB: send failed with status %s",
+				     pkt, libusb_error_name(status));
 		if (size_sent < 0)
-		  ERR_AND_EXIT("P %p: Unexpected negative size_sent", pkt);
+			ERR_AND_EXIT("P %p: Unexpected negative size_sent",
+				     pkt);
 
 		pending -= (size_t) size_sent;
 		sent += (size_t) size_sent;
@@ -649,9 +651,9 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			ERR("tried reading %d bytes", read_size);
 			goto cleanup;
 		} else if (status == LIBUSB_ERROR_TIMEOUT) {
-			ERR("bulk xfer failed with timeout");
-			ERR("tried reading %d bytes", read_size);
-			break;
+			ERR("bulk xfer timed out, retrying ...");
+			ERR("tried reading %d bytes, actually read %d bytes",
+			    read_size, gotten_size);
 		}
 
 		if (gotten_size < 0)
@@ -695,8 +697,12 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			sleep_dur.tv_nsec = skip_timeout;
 			nanosleep(&sleep_dur, NULL);
 
-			times_staled++;
-			if (times_staled % TIMEOUT_RATIO == 0) {
+			if (status == LIBUSB_ERROR_TIMEOUT)
+				times_staled += TIMEOUT_RATIO * timeout / 1000;
+			else
+				times_staled++;
+			if (times_staled % TIMEOUT_RATIO == 0 ||
+			    status == LIBUSB_ERROR_TIMEOUT) {
 				NOTE("No bytes received for %d sec.",
 				     times_staled / TIMEOUT_RATIO);
 				if (pkt->filled_size > 0)
