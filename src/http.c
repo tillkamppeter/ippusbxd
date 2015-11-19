@@ -393,8 +393,10 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 		goto do_ret;
 	} 
 
-	// Get requests
-	if (doesMatch("GET", 3, pkt->buffer, pkt->filled_size)) {
+	// GET requests (start with GET) or answers from the server (start
+	// with HTTP)
+	if (doesMatch("GET", 3, pkt->buffer, pkt->filled_size) ||
+	    doesMatch("HTTP", 4, pkt->buffer, pkt->filled_size)) {
 		size = header_size;
 		type = HTTP_HEADER_ONLY;
 		goto do_ret;
