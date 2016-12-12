@@ -66,6 +66,6 @@ void usb_register_callback(struct usb_sock_t *);
 struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *);
 void usb_conn_release(struct usb_conn_t *);
 
-void usb_conn_packet_send(struct usb_conn_t *, struct http_packet_t *);
+int usb_conn_packet_send(struct usb_conn_t *, struct http_packet_t *);
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *, struct http_message_t *);
 

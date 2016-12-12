@@ -166,9 +166,11 @@ struct usb_sock_t *usb_open()
 			status = libusb_get_config_descriptor(candidate,
 			                                      config_num,
 			                                      &config);
-			if (status < 0)
-				ERR_AND_EXIT("USB: didn't get config desc %s",
-					libusb_error_name(status));
+			if (status < 0) {
+				ERR("USB: didn't get config desc %s",
+				    libusb_error_name(status));
+				goto error;
+			}
 
 			int interface_count = count_ippoverusb_interfaces(config);
 			libusb_free_config_descriptor(config);
@@ -187,7 +189,8 @@ struct usb_sock_t *usb_open()
 			}
 
 			if (!auto_pick) {
-				ERR_AND_EXIT("No ipp-usb interfaces found");
+				ERR("No ipp-usb interfaces found");
+				goto error;
 			}
 		}
 	}
@@ -481,15 +484,21 @@ static int usb_all_conns_staled(struct usb_sock_t *usb)
 struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
 {
 
+        int i;
 	if (usb->num_avail <= 0) {
 		NOTE("All USB interfaces busy, waiting ...");
-		while (usb->num_avail <= 0)
-			usleep(100000);
+		for (i = 0; i < 30 && usb->num_avail <= 0; i ++)
+		  usleep(100000);
+		if (usb->num_avail <= 0) {
+		        ERR("Timed out waiting for a free USB interface");
+		        return NULL;
+		}
+		usleep(100000);
 	}
 
 	struct usb_conn_t *conn = calloc(1, sizeof(*conn));
 	if (conn == NULL) {
-		ERR("failed to aloc space for usb connection");
+		ERR("Failed to alloc space for usb connection");
 		return NULL;
 	}
 
@@ -498,8 +507,6 @@ struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
 		conn->parent = usb;
 
 		uint32_t slot = usb->num_taken;
-		usb->num_taken++;
-		usb->num_avail--;
 
 		conn->interface_index = usb->interface_pool[slot];
 		conn->interface = usb->interfaces + conn->interface_index;
@@ -507,9 +514,10 @@ struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
 
 		// Sanity check: Is the interface still free
 		if (sem_trywait(&uf->lock)) {
-		  ERR_AND_EXIT("Interface #%d (%d) already in use!",
-			       conn->interface_index,
-			       uf->libusb_interface_index);
+		  ERR("Interface #%d (%d) already in use!",
+		      conn->interface_index,
+		      uf->libusb_interface_index);
+		  goto acquire_error;
 		}
 
 		// Make kernel release interface
@@ -531,11 +539,14 @@ struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
 			// so we're left with a spinlock
 			status = libusb_claim_interface(
 				usb->printer, uf->libusb_interface_index);
+			if (status) NOTE("Failed to claim interface %d, retrying", conn->interface_index);
 			switch (status) {
 			case LIBUSB_ERROR_NOT_FOUND:
-				ERR_AND_EXIT("USB Interface did not exist");
+				ERR("USB Interface did not exist");
+				goto acquire_error;
 			case LIBUSB_ERROR_NO_DEVICE:
-				ERR_AND_EXIT("Printer was removed");
+				ERR("Printer was removed");
+				goto acquire_error;
 			default:
 				break;
 			}
@@ -545,9 +556,20 @@ struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
 		libusb_set_interface_alt_setting(usb->printer,
 		                                 uf->libusb_interface_index,
 		                                 uf->interface_alt);
+
+		// Take successfully acquired interface from the pool
+		usb->num_taken++;
+		usb->num_avail--;
 	}
 	sem_post(&usb->pool_manage_lock);
 	return conn;
+
+ acquire_error:
+
+	sem_post(&usb->pool_manage_lock);
+	free(conn);
+	return NULL;
+
 }
 
 void usb_conn_release(struct usb_conn_t *conn)
@@ -555,8 +577,15 @@ void usb_conn_release(struct usb_conn_t *conn)
 	struct usb_sock_t *usb = conn->parent;
 	sem_wait(&usb->pool_manage_lock);
 	{
-		libusb_release_interface(usb->printer,
+		int status = 0;
+		do {
+			// Spinlock-like
+			// Libusb does not offer a blocking call
+			// so we're left with a spinlock
+		        status = libusb_release_interface(usb->printer,
 				conn->interface->libusb_interface_index);
+			if (status) NOTE("Failed to release interface %d, retrying", conn->interface_index);
+		} while (status != 0);
 
 		// Return usb interface to pool
 		usb->num_taken--;
@@ -572,7 +601,7 @@ void usb_conn_release(struct usb_conn_t *conn)
 	sem_post(&usb->pool_manage_lock);
 }
 
-void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
+int usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 {
 	int size_sent = 0;
 	const int timeout = 1000; // 1 sec
@@ -587,15 +616,19 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		                                  conn->interface->endpoint_out,
 		                                  pkt->buffer + sent, to_send,
 		                                  &size_sent, timeout);
-		if (status == LIBUSB_ERROR_NO_DEVICE)
-			ERR_AND_EXIT("P %p: Printer has been disconnected",
-				     pkt);
+		if (status == LIBUSB_ERROR_NO_DEVICE) {
+			ERR("P %p: Printer has been disconnected",
+			    pkt);
+			return 0;
+		}
 		if (status == LIBUSB_ERROR_TIMEOUT) {
 			NOTE("P %p: USB: send timed out, retrying", pkt);
 
-			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT_RECEIVE)
-				ERR_AND_EXIT("P %p: Usb send fully timed out",
-					     pkt);
+			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT_RECEIVE) {
+				ERR("P %p: Usb send fully timed out",
+				    pkt);
+				return 0;
+			}
 
 			// Sleep for tenth of a second
 			struct timespec sleep_dur;
@@ -604,18 +637,23 @@ void usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 			nanosleep(&sleep_dur, NULL);
 			if (size_sent == 0)
 				continue;
-		} else if (status < 0)
-			ERR_AND_EXIT("P %p: USB: send failed with status %s",
-				     pkt, libusb_error_name(status));
-		if (size_sent < 0)
-			ERR_AND_EXIT("P %p: Unexpected negative size_sent",
-				     pkt);
+		} else if (status < 0) {
+			ERR("P %p: USB: send failed with status %s",
+			    pkt, libusb_error_name(status));
+			return 0;
+		}
+		if (size_sent < 0) {
+			ERR("P %p: Unexpected negative size_sent",
+			    pkt);
+			return 0;
+		}
 
 		pending -= (size_t) size_sent;
 		sent += (size_t) size_sent;
 		NOTE("P %p: USB: sent %d bytes", pkt, size_sent);
 	}
 	NOTE("P %p: USB: sent %d bytes in total", pkt, sent);
+	return 1;
 }
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)
@@ -646,8 +684,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 
 		// Expand buffer if needed
 		if (pkt->buffer_capacity < pkt->filled_size + read_size_ulong)
-			if (packet_expand(pkt) < 0)
-				ERR_AND_EXIT("Failed to ensure room for usb pkt");
+			if (packet_expand(pkt) < 0) {
+				ERR("Failed to ensure room for usb pkt");
+				goto cleanup;
+			}
 
 		int gotten_size = 0;
 		int status = libusb_bulk_transfer(
@@ -657,8 +697,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 		                      read_size,
 		                      &gotten_size, timeout);
 
-		if (status == LIBUSB_ERROR_NO_DEVICE)
-			ERR_AND_EXIT("Printer has been disconnected");
+		if (status == LIBUSB_ERROR_NO_DEVICE) {
+			ERR("Printer has been disconnected");
+			goto cleanup;
+		}
 
 		if (status != 0 && status != LIBUSB_ERROR_TIMEOUT) {
 			ERR("bulk xfer failed with error code %d", status);
@@ -670,8 +712,10 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
 			    read_size, gotten_size);
 		}
 
-		if (gotten_size < 0)
-			ERR_AND_EXIT("Negative read size unexpected");
+		if (gotten_size < 0) {
+			ERR("Negative read size unexpected");
+			goto cleanup;
+		}
 
 		if (gotten_size > 0) {
 			times_staled = 0;

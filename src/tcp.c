@@ -172,6 +172,12 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 		return pkt;
 	}
 
+	struct timeval tv;
+	tv.tv_sec = 3;
+	tv.tv_usec = 0;
+	setsockopt(tcp->sd, SOL_SOCKET, SO_RCVTIMEO,
+		   (char *)&tv, sizeof(struct timeval));
+
 	while (want_size != 0 && !msg->is_completed) {
 		NOTE("TCP: Getting %d bytes", want_size);
 		uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
@@ -180,6 +186,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
 			int errno_saved = errno;
 			ERR("recv failed with err %d:%s", errno_saved,
 				strerror(errno_saved));
+			tcp->is_closed = 1;
 			goto error;
 		}
 		NOTE("TCP: Got %d bytes", gotten_size);
@@ -207,7 +214,7 @@ error:
 	return NULL;
 }
 
-void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
+int tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
 	size_t remaining = pkt->filled_size;
 	size_t total = 0;
@@ -217,9 +224,10 @@ void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 		if (sent < 0) {
 			if (errno == EPIPE) {
 				conn->is_closed = 1;
-				return;
+				return 1;
 			}
-			ERR_AND_EXIT("Failed to sent data over TCP");
+			ERR("Failed to sent data over TCP");
+			return 0;
 		}
 
 		size_t sent_ulong = (unsigned) sent;
@@ -230,6 +238,7 @@ void tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 			remaining -= sent_ulong;
 	}
 	NOTE("TCP: sent %lu bytes", total);
+	return 1;
 }
 
 

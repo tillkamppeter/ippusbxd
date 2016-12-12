@@ -42,7 +42,7 @@ static void *service_connection(void *arg_void)
 	// classify priority
 	struct usb_conn_t *usb = NULL;
 	int usb_failed = 0;
-	while (!arg->tcp->is_closed) {
+	while (!arg->tcp->is_closed && usb_failed == 0) {
 		struct http_message_t *server_msg = NULL;
 		struct http_message_t *client_msg = NULL;
 
@@ -74,6 +74,7 @@ static void *service_connection(void *arg_void)
 					ERR("Thread #%d: M %p: Failed to acquire usb interface",
 					    arg->thread_num, client_msg);
 					packet_free(pkt);
+					usb_failed = 1;
 					goto cleanup_subconn;
 				}
 				usb_failed = 0;
@@ -89,7 +90,13 @@ static void *service_connection(void *arg_void)
 			// In no-printer mode we simply ignore passing the
 			// client message on to the printer
 			if (arg->usb_sock != NULL) {
-				usb_conn_packet_send(usb, pkt);
+			        if (usb_conn_packet_send(usb, pkt) == 0) {
+				        ERR("Thread #%d: M %p P %p: Interface #%d: Unable to send client package via USB",
+					    arg->thread_num,
+					    client_msg, pkt, usb->interface_index);
+					packet_free(pkt);
+					goto cleanup_subconn;
+				}
 				NOTE("Thread #%d: M %p P %p: Interface #%d: Client pkt done",
 				     arg->thread_num,
 				     client_msg, pkt, usb->interface_index);
@@ -127,7 +134,7 @@ static void *service_connection(void *arg_void)
 				pkt = usb_conn_packet_get(usb, server_msg);
 				if (pkt == NULL) {
 					usb_failed = 1;
-					break;
+					goto cleanup_subconn;
 				}
 			} else {
 				// In no-printer mode we "invent" the answer
@@ -147,7 +154,13 @@ static void *service_connection(void *arg_void)
 			NOTE("Thread #%d: M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
 			     arg->thread_num, server_msg, pkt, pkt->filled_size,
 			     hexdump(pkt->buffer, (int)pkt->filled_size));
-			tcp_packet_send(arg->tcp, pkt);
+			if (tcp_packet_send(arg->tcp, pkt) == 0) {
+				ERR("Thread #%d: M %p P %p: Unable to send client package via TCP",
+				    arg->thread_num,
+				    client_msg, pkt);
+				packet_free(pkt);
+				goto cleanup_subconn;
+			}
 			if (usb != NULL)
 				NOTE("Thread #%d: M %p P %p: Interface #%d: Server pkt done",
 				     arg->thread_num, server_msg, pkt,
