@@ -30,6 +30,7 @@ struct service_thread_param {
 	struct tcp_conn_t *tcp;
 	struct usb_sock_t *usb_sock;
 	pthread_t thread_handle;
+        int thread_num;
 };
 
 static void *service_connection(void *arg_void)
@@ -37,7 +38,8 @@ static void *service_connection(void *arg_void)
 	struct service_thread_param *arg =
 		(struct service_thread_param *)arg_void;
 
-	// clasify priority
+	NOTE("Thread #%d: Starting", arg->thread_num);
+	// classify priority
 	struct usb_conn_t *usb = NULL;
 	int usb_failed = 0;
 	while (!arg->tcp->is_closed) {
@@ -50,47 +52,57 @@ static void *service_connection(void *arg_void)
 			ERR("Failed to create client message");
 			break;
 		}
-		NOTE("M %p: Client msg starting", client_msg);
+		NOTE("Thread #%d: M %p: Client msg starting",
+		     arg->thread_num, client_msg);
 
 		while (!client_msg->is_completed) {
 			struct http_packet_t *pkt;
 			pkt = tcp_packet_get(arg->tcp, client_msg);
 			if (pkt == NULL) {
 				if (arg->tcp->is_closed) {
-					NOTE("M %p: Client closed connection\n", client_msg);
+					NOTE("Thread #%d: M %p: Client closed connection\n",
+					     arg->thread_num, client_msg);
 					goto cleanup_subconn;
 				}
-				ERR("M %p: Got null packet from tcp", client_msg);
+				ERR("Thread #%d: M %p: Got null packet from tcp",
+				    arg->thread_num, client_msg);
 				goto cleanup_subconn;
 			}
 			if (usb == NULL && arg->usb_sock != NULL) {
 				usb = usb_conn_acquire(arg->usb_sock);
 				if (usb == NULL) {
-					ERR("M %p: Failed to acquire usb interface", client_msg);
+					ERR("Thread #%d: M %p: Failed to acquire usb interface",
+					    arg->thread_num, client_msg);
 					packet_free(pkt);
 					goto cleanup_subconn;
 				}
 				usb_failed = 0;
-				NOTE("M %p: Interface #%d: acquired usb conn",
-				     client_msg,
+				NOTE("Thread #%d: M %p: Interface #%d: acquired usb conn",
+				     arg->thread_num, client_msg,
 				     usb->interface_index);
 			}
 
-			NOTE("M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%s===", client_msg, pkt, pkt->filled_size, hexdump(pkt->buffer, (int)pkt->filled_size));
+			NOTE("Thread #%d: M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%s===",
+			     arg->thread_num, client_msg, pkt,
+			     pkt->filled_size,
+			     hexdump(pkt->buffer, (int)pkt->filled_size));
 			// In no-printer mode we simply ignore passing the
 			// client message on to the printer
 			if (arg->usb_sock != NULL) {
 				usb_conn_packet_send(usb, pkt);
-				NOTE("M %p P %p: Interface #%d: Client pkt done",
+				NOTE("Thread #%d: M %p P %p: Interface #%d: Client pkt done",
+				     arg->thread_num,
 				     client_msg, pkt, usb->interface_index);
 			}
 			packet_free(pkt);
 		}
 		if (usb != NULL)
-			NOTE("M %p: Interface #%d: Client msg completed\n", client_msg,
+			NOTE("Thread #%d: M %p: Interface #%d: Client msg completed\n",
+			     arg->thread_num, client_msg,
 			     usb->interface_index);
 		else
-			NOTE("M %p: Client msg completed\n", client_msg);
+			NOTE("Thread #%d: M %p: Client msg completed\n",
+			     arg->thread_num, client_msg);
 		message_free(client_msg);
 		client_msg = NULL;
 
@@ -98,14 +110,17 @@ static void *service_connection(void *arg_void)
 		// Server's response
 		server_msg = http_message_new();
 		if (server_msg == NULL) {
-			ERR("Failed to create server message");
+		        ERR("Thread #%d: Failed to create server message",
+			    arg->thread_num);
 			goto cleanup_subconn;
 		}
 		if (usb != NULL)
-			NOTE("M %p: Interface #%d: Server msg starting", server_msg,
+			NOTE("Thread #%d: M %p: Interface #%d: Server msg starting",
+			     arg->thread_num, server_msg,
 			     usb->interface_index);
 		else
-			NOTE("M %p: Server msg starting", server_msg);
+			NOTE("Thread #%d: M %p: Server msg starting",
+			     arg->thread_num, server_msg);
 		while (!server_msg->is_completed) {
 			struct http_packet_t *pkt;
 			if (arg->usb_sock != NULL) {
@@ -129,28 +144,31 @@ static void *service_connection(void *arg_void)
 				arg->tcp->is_closed = 1;
 			}
 
-			NOTE("M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
-			     server_msg, pkt, pkt->filled_size,
+			NOTE("Thread #%d: M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
+			     arg->thread_num, server_msg, pkt, pkt->filled_size,
 			     hexdump(pkt->buffer, (int)pkt->filled_size));
 			tcp_packet_send(arg->tcp, pkt);
 			if (usb != NULL)
-				NOTE("M %p P %p: Interface #%d: Server pkt done",
-				     server_msg, pkt, usb->interface_index);
+				NOTE("Thread #%d: M %p P %p: Interface #%d: Server pkt done",
+				     arg->thread_num, server_msg, pkt,
+				     usb->interface_index);
 			else
-				NOTE("M %p P %p: Server pkt done",
-				     server_msg, pkt);
+				NOTE("Thread #%d: M %p P %p: Server pkt done",
+				     arg->thread_num, server_msg, pkt);
 			packet_free(pkt);
 		}
 		if (usb != NULL)
-			NOTE("M %p: Interface #%d: Server msg completed\n", server_msg,
+			NOTE("Thread #%d: M %p: Interface #%d: Server msg completed\n",
+			     arg->thread_num, server_msg,
 			     usb->interface_index);
 		else
-			NOTE("M %p: Server msg completed\n", server_msg);
+			NOTE("Thread #%d: M %p: Server msg completed\n",
+			     arg->thread_num, server_msg);
 
 cleanup_subconn:
 		if (usb != NULL && (arg->tcp->is_closed || usb_failed == 1)) {
-			NOTE("M %p: Interface #%d: releasing usb conn",
-			     server_msg, usb->interface_index);
+			NOTE("Thread #%d: M %p: Interface #%d: releasing usb conn",
+			     arg->thread_num, server_msg, usb->interface_index);
 			usb_conn_release(usb);
 			usb = NULL;
 		}
@@ -161,7 +179,7 @@ cleanup_subconn:
 	}
 
 
-
+	NOTE("Thread #%d: Closing", arg->thread_num);
 	tcp_conn_close(arg->tcp);
 	free(arg);
 	return NULL;
@@ -228,13 +246,15 @@ static void start_daemon()
 	if (usb_can_callback(usb_sock))
 		usb_register_callback(usb_sock);
 
-	for (;;) {
+	int i;
+	for (i = 0; ; i++) {
 		struct service_thread_param *args = calloc(1, sizeof(*args));
 		if (args == NULL) {
 			ERR("Failed to alloc space for thread args");
 			goto cleanup_thread;
 		}
 
+		args->thread_num = i;
 		args->usb_sock = usb_sock;
 
 		// For each request/response round we use the socket (IPv4 or
