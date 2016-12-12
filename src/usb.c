@@ -73,7 +73,7 @@ static int is_our_device(libusb_device *dev,
 {
 	static const int SERIAL_MAX = 1024;
 	unsigned char serial[1024];
-	if ((g_options.vendor_id  && desc.idVendor  != g_options.vendor_id)  &&
+	if ((g_options.vendor_id  && desc.idVendor  != g_options.vendor_id)  ||
 	    (g_options.product_id && desc.idProduct != g_options.product_id))
 		return 0;
 
