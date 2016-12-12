@@ -42,6 +42,7 @@ static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 {
 	int ippusb_interface_count = 0;
 
+	NOTE("Counting IPP-over-USB interfaces ...");
 	for (uint8_t interface_num = 0;
 	     interface_num < config->bNumInterfaces;
 	     interface_num++) {
@@ -55,16 +56,21 @@ static int count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 	
 			const struct libusb_interface_descriptor *alt = NULL;
 			alt = &interface->altsetting[alt_num];
+			NOTE("Interface %d, Alt %d: Class %d, Subclass %d, Protocol %d",
+			     interface_num, alt_num, alt->bInterfaceClass,
+			     alt->bInterfaceSubClass, alt->bInterfaceProtocol);
 	
 			// Check for IPP over USB interfaces
 			if (!is_ippusb_interface(alt))
 				continue;
-	
+
+			NOTE("   -> is IPP-over-USB");
 			ippusb_interface_count++;
 			break;
 		}
 	}
 
+	NOTE("   -> %d Interfaces", ippusb_interface_count);
 	return ippusb_interface_count;
 }
 
@@ -73,6 +79,11 @@ static int is_our_device(libusb_device *dev,
 {
 	static const int SERIAL_MAX = 1024;
 	unsigned char serial[1024];
+	if (g_options.vendor_id || g_options.product_id)
+	  NOTE("Searching for device: VID %d, PID %d",
+	       g_options.vendor_id, g_options.product_id);
+	NOTE("Found device: VID %d, PID %d",
+	     desc.idVendor, desc.idProduct);
 	if ((g_options.vendor_id  && desc.idVendor  != g_options.vendor_id)  ||
 	    (g_options.product_id && desc.idProduct != g_options.product_id))
 		return 0;
@@ -80,6 +91,8 @@ static int is_our_device(libusb_device *dev,
 	if (g_options.serial_num == NULL)
 		return 1;
 
+	NOTE("Searching for device with serial number %s",
+	     g_options.serial_num);
 	libusb_device_handle *handle = NULL;
 	int status = libusb_open(dev, &handle);
 	if (status != 0) {
@@ -283,6 +296,7 @@ found_device:
 	for (uint32_t i = 0; i < usb->num_avail; i++) {
 		usb->interface_pool[i] = i;
 	}
+	NOTE("USB interfaces pool: %d interfaces", usb->num_avail);
 
 
 	// Stale lock
