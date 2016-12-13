@@ -224,10 +224,10 @@ int tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 		if (sent < 0) {
 			if (errno == EPIPE) {
 				conn->is_closed = 1;
-				return 1;
+				return 0;
 			}
 			ERR("Failed to sent data over TCP");
-			return 0;
+			return -1;
 		}
 
 		size_t sent_ulong = (unsigned) sent;
@@ -238,7 +238,7 @@ int tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 			remaining -= sent_ulong;
 	}
 	NOTE("TCP: sent %lu bytes", total);
-	return 1;
+	return 0;
 }
 
 

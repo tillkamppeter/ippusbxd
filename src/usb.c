@@ -619,7 +619,7 @@ int usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		if (status == LIBUSB_ERROR_NO_DEVICE) {
 			ERR("P %p: Printer has been disconnected",
 			    pkt);
-			return 0;
+			return -1;
 		}
 		if (status == LIBUSB_ERROR_TIMEOUT) {
 			NOTE("P %p: USB: send timed out, retrying", pkt);
@@ -627,7 +627,7 @@ int usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 			if (num_timeouts++ > PRINTER_CRASH_TIMEOUT_RECEIVE) {
 				ERR("P %p: Usb send fully timed out",
 				    pkt);
-				return 0;
+				return -1;
 			}
 
 			// Sleep for tenth of a second
@@ -640,12 +640,12 @@ int usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		} else if (status < 0) {
 			ERR("P %p: USB: send failed with status %s",
 			    pkt, libusb_error_name(status));
-			return 0;
+			return -1;
 		}
 		if (size_sent < 0) {
 			ERR("P %p: Unexpected negative size_sent",
 			    pkt);
-			return 0;
+			return -1;
 		}
 
 		pending -= (size_t) size_sent;
@@ -653,7 +653,7 @@ int usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
 		NOTE("P %p: USB: sent %d bytes", pkt, size_sent);
 	}
 	NOTE("P %p: USB: sent %d bytes in total", pkt, sent);
-	return 1;
+	return 0;
 }
 
 struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_message_t *msg)

@@ -90,7 +90,7 @@ static void *service_connection(void *arg_void)
 			// In no-printer mode we simply ignore passing the
 			// client message on to the printer
 			if (arg->usb_sock != NULL) {
-			        if (usb_conn_packet_send(usb, pkt) == 0) {
+			        if (usb_conn_packet_send(usb, pkt) != 0) {
 				        ERR("Thread #%d: M %p P %p: Interface #%d: Unable to send client package via USB",
 					    arg->thread_num,
 					    client_msg, pkt, usb->interface_index);
@@ -154,7 +154,7 @@ static void *service_connection(void *arg_void)
 			NOTE("Thread #%d: M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
 			     arg->thread_num, server_msg, pkt, pkt->filled_size,
 			     hexdump(pkt->buffer, (int)pkt->filled_size));
-			if (tcp_packet_send(arg->tcp, pkt) == 0) {
+			if (tcp_packet_send(arg->tcp, pkt) != 0) {
 				ERR("Thread #%d: M %p P %p: Unable to send client package via TCP",
 				    arg->thread_num,
 				    client_msg, pkt);
