@@ -1,0 +1,26 @@
+# Credit to chdromiumos project
+
+# - Try to find the freetype library
+# Once done this defines
+#
+# AVAHICLIENT_FOUND - system has libusb
+# AVAHICLIENT_INCLUDE_DIR - the libusb include directory
+# AVAHICLIENT_LIBRARIES - Link these to use libusb
+# Copyright (c) 2006, 2008 Laurent Montel, <montel@kde.org>
+#
+# Redistribution and use is allowed according to the terms of the BSD license.
+# For details see the accompanying COPYING-CMAKE-SCRIPTS file.
+if (AVAHICLIENT_INCLUDE_DIR AND AVAHICLIENT_LIBRARIES)
+	# in cache already
+	set(AVAHICLIENT_FOUND TRUE)
+else (AVAHICLIENT_INCLUDE_DIR AND AVAHICLIENT_LIBRARIES)
+	FIND_PATH(AVAHICLIENT_INCLUDE_DIR client.h
+	PATHS ${PC_AVAHICLIENT_INCLUDEDIR} ${PC_AVAHICLIENT_INCLUDE_DIRS})
+	FIND_LIBRARY(AVAHICLIENT_LIBRARIES NAMES avahi-client
+	PATHS ${PC_AVAHICLIENT_LIBDIR} ${PC_AVAHICLIENT_LIBRARY_DIRS})
+
+	#include(FindPackageHandleStandardArgs)
+	#FIND_PACKAGE_HANDLE_STANDARD_ARGS(AVAHICLIENT DEFAULT_MSG AVAHICLIENT_LIBRARIES AVAHICLIENT_INCLUDE_DIR)
+	
+	MARK_AS_ADVANCED(AVAHICLIENT_INCLUDE_DIR AVAHICLIENT_LIBRARIES)
+endif (AVAHICLIENT_INCLUDE_DIR AND AVAHICLIENT_LIBRARIES)

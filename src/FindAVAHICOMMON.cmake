@@ -1,0 +1,26 @@
+# Credit to chdromiumos project
+
+# - Try to find the freetype library
+# Once done this defines
+#
+# AVAHICOMMON_FOUND - system has libusb
+# AVAHICOMMON_INCLUDE_DIR - the libusb include directory
+# AVAHICOMMON_LIBRARIES - Link these to use libusb
+# Copyright (c) 2006, 2008 Laurent Montel, <montel@kde.org>
+#
+# Redistribution and use is allowed according to the terms of the BSD license.
+# For details see the accompanying COPYING-CMAKE-SCRIPTS file.
+if (AVAHICOMMON_INCLUDE_DIR AND AVAHICOMMON_LIBRARIES)
+	# in cache already
+	set(AVAHICOMMON_FOUND TRUE)
+else (AVAHICOMMON_INCLUDE_DIR AND AVAHICOMMON_LIBRARIES)
+	FIND_PATH(AVAHICOMMON_INCLUDE_DIR thread-watch.h
+	PATHS ${PC_AVAHICOMMON_INCLUDEDIR} ${PC_AVAHICOMMON_INCLUDE_DIRS})
+	FIND_LIBRARY(AVAHICOMMON_LIBRARIES NAMES avahi-common
+	PATHS ${PC_AVAHICOMMON_LIBDIR} ${PC_AVAHICOMMON_LIBRARY_DIRS})
+
+	#include(FindPackageHandleStandardArgs)
+	#FIND_PACKAGE_HANDLE_STANDARD_ARGS(AVAHICOMMON DEFAULT_MSG AVAHICOMMON_LIBRARIES AVAHICOMMON_INCLUDE_DIR)
+	
+	MARK_AS_ADVANCED(AVAHICOMMON_INCLUDE_DIR AVAHICOMMON_LIBRARIES)
+endif (AVAHICOMMON_INCLUDE_DIR AND AVAHICOMMON_LIBRARIES)

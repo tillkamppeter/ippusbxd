@@ -119,11 +119,59 @@ static int is_our_device(libusb_device *dev,
 	}
 }
 
+int get_device_id(struct libusb_device_handle *handle,
+		  int conf,
+		  int iface,
+		  int altset,
+		  char *buffer,
+		  size_t bufsize)
+{
+  size_t	length;
+
+  if (libusb_control_transfer(handle,
+			      LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_ENDPOINT_IN |
+			      LIBUSB_RECIPIENT_INTERFACE,
+			      0, conf, (iface << 8) | altset,
+			      (unsigned char *)buffer, bufsize, 5000) < 0) {
+    *buffer = '\0';
+    return (-1);
+  }
+
+  // Extract the length of the device ID string from the first two
+  // bytes.  The 1284 spec says the length is stored MSB first...
+  length = (int)((((unsigned)buffer[0] & 255) << 8) |
+		 ((unsigned)buffer[1] & 255));
+
+  // Check to see if the length is larger than our buffer or less than 14 bytes
+  // (the minimum valid device ID is "MFG:x;MDL:y;" with 2 bytes for the
+  // length).
+  // If the length is out-of-range, assume that the vendor incorrectly
+  // implemented the 1284 spec and re-read the length as LSB first,..
+  if (length > bufsize || length < 14)
+    length = (int)((((unsigned)buffer[1] & 255) << 8) |
+		   ((unsigned)buffer[0] & 255));
+
+  if (length > bufsize)
+    length = bufsize;
+
+  if (length < 14) {
+    // Invalid device ID, clear it!
+    *buffer = '\0';
+    return (-1);
+  }
+
+  length -= 2;
+  memmove(buffer, buffer + 2, (size_t)length);
+  buffer[length] = '\0';
+  return (0);
+}
+
 struct usb_sock_t *usb_open()
 {
 	int status_lock;
 	struct usb_sock_t *usb = calloc(1, sizeof *usb);
 	int status = 1;
+	usb->device_id = NULL;
 	status = libusb_init(&usb->context);
 	if (status < 0) {
 		ERR("libusb init failed with error: %s",
@@ -245,6 +293,26 @@ found_device:
 	
 			const struct libusb_interface_descriptor *alt = NULL;
 			alt = &interf->altsetting[alt_num];
+
+			// Get the IEE-1284 device ID
+			if (usb->device_id == NULL) {
+			  usb->device_id = calloc(2048, sizeof(char));
+			  if (usb->device_id == NULL) {
+			    ERR("Failed to allocate memory for the device ID");
+			    goto error;
+			  }
+			  if (get_device_id(usb->printer, selected_config,
+					    interf_num, alt_num,
+					    usb->device_id, 2048) != 0 ||
+			      strlen(usb->device_id) == 0) {
+			    NOTE("Could not retrieve device ID for config #%d, interface #%d, alt setting #%d, will try with other combo ...",
+				 selected_config, interf_num, alt_num);
+			    free(usb->device_id);
+			    usb->device_id = NULL;
+			  } else {
+			    NOTE("USB device ID: %s", usb->device_id);
+			  }
+			}
 
 			// Skip non-IPP-USB interfaces
 			if (!is_ippusb_interface(alt))

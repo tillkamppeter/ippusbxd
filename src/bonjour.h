@@ -13,31 +13,19 @@
  * limitations under the License. */
 
 #pragma once
-#include <stdint.h>
 
-enum log_target {
-	LOGGING_STDERR,
-	LOGGING_SYSLOG
-};
+#include <avahi-client/client.h>
+#include <avahi-client/publish.h>
+#include <avahi-common/error.h>
+#include <avahi-common/thread-watch.h>
 
-struct options {
-	// Runtime configuration
-	uint16_t desired_port;
-	int only_desired_port;
-        char *interface;
-	enum log_target log_destination;
+typedef struct bonjour_s {
+  AvahiThreadedPoll *DNSSDMaster;
+  AvahiClient       *DNSSDClient;
+  AvahiEntryGroup   *ipp_ref;
+} bonjour_t;
 
-	// Behavior
-	int help_mode;
-	int verbose_mode;
-	int nofork_mode;
-        int noprinter_mode;
-        int nobroadcast;
-
-	// Printer indentity
-	unsigned char *serial_num;
-	int vendor_id;
-	int product_id;
-};
-
-extern struct options g_options;
+void		dnssd_init(bonjour_t *bonjour_data);
+void		dnssd_shutdown(bonjour_t *bonjour_data);
+int		register_printer(bonjour_t *bonjour_data,
+				 char *device_id, char *interface, int port);

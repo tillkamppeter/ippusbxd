@@ -34,6 +34,7 @@ struct usb_interface {
 struct usb_sock_t {
 	libusb_context *context;
 	libusb_device_handle *printer;
+        char *device_id;
 	int max_packet_size;
 
 	uint32_t num_interfaces;

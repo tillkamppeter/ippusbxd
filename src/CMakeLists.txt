@@ -15,11 +15,16 @@ elseif( ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-nonliteral")
 endif()
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+
 # Pthreads
 find_package(Threads REQUIRED)
 
+# Avahi
+find_package(AVAHICOMMON REQUIRED)
+find_package(AVAHICLIENT REQUIRED)
+
 # Libusb
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(LIBUSB REQUIRED)
 include_directories(${LIBUSB_INCLUDE_DIR})
 
@@ -31,7 +36,10 @@ tcp.c
 usb.c
 logging.c
 options.c
+bonjour.c
 )
 target_link_libraries(ippusbxd ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(ippusbxd ${LIBUSB_LIBRARIES})
+target_link_libraries(ippusbxd ${AVAHICOMMON_LIBRARIES})
+target_link_libraries(ippusbxd ${AVAHICLIENT_LIBRARIES})
 

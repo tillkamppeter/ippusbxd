@@ -12,9 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -25,6 +27,7 @@
 #include "http.h"
 #include "tcp.h"
 #include "usb.h"
+#include "bonjour.h"
 
 struct service_thread_param {
 	struct tcp_conn_t *tcp;
@@ -202,6 +205,9 @@ static void start_daemon()
 {
 	// Capture USB device if not in no-printer mode
 	struct usb_sock_t *usb_sock;
+	// Bonjour broadcasting of the printer via Avahi
+	bonjour_t *bonjour_data = NULL;
+
 	if (g_options.noprinter_mode == 0) {
 		usb_sock = usb_open();
 		if (usb_sock == NULL)
@@ -213,8 +219,8 @@ static void start_daemon()
 	uint16_t desired_port = g_options.desired_port;
 	struct tcp_sock_t *tcp_socket = NULL, *tcp6_socket = NULL;
 	for (;;) {
-		tcp_socket = tcp_open(desired_port);
-		tcp6_socket = tcp6_open(desired_port);
+	  tcp_socket = tcp_open(desired_port, g_options.interface);
+	  tcp6_socket = tcp6_open(desired_port, g_options.interface);
 		if (tcp_socket || tcp6_socket || g_options.only_desired_port)
 			break;
 		// Search for a free port
@@ -259,6 +265,19 @@ static void start_daemon()
 	if (usb_can_callback(usb_sock))
 		usb_register_callback(usb_sock);
 
+	// Bonjour-broadcast the printer on the local machine so
+	// that cups-browsed and ippfind will discover it (does not work
+	// with the loopback interface "lo")
+	if (usb_sock && g_options.nobroadcast == 0 &&
+	    strcasecmp(g_options.interface, "lo") != 0) {
+	  bonjour_data = calloc(1, sizeof(bonjour_t));
+	  if (bonjour_data == NULL)
+	    ERR_AND_EXIT("Unable to allocate memory for Bonjour broadcast data.");
+	  dnssd_init(bonjour_data);
+	  register_printer(bonjour_data, usb_sock->device_id,
+			   g_options.interface, real_port);
+	}
+
 	int i;
 	for (i = 0; ; i++) {
 		struct service_thread_param *args = calloc(1, sizeof(*args));
@@ -297,6 +316,9 @@ static void start_daemon()
 	}
 
 cleanup_tcp:
+	if (bonjour_data != NULL)
+	  dnssd_shutdown(bonjour_data);
+
 	if (tcp_socket!= NULL)
 		tcp_close(tcp_socket);
 	if (tcp6_socket!= NULL)
@@ -320,8 +342,9 @@ int main(int argc, char *argv[])
 	int c;
 	g_options.log_destination = LOGGING_STDERR;
 	g_options.only_desired_port = 1;
+	g_options.interface = "lo";
 
-	while ((c = getopt(argc, argv, "qnhdp:P:s:lv:m:N")) != -1) {
+	while ((c = getopt(argc, argv, "qnhdp:P:i:s:lv:m:NB")) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -349,6 +372,10 @@ int main(int argc, char *argv[])
 			  g_options.only_desired_port = 0;
 			break;
 		}
+		case 'i':
+			// Request a specific network interface
+			g_options.interface = strdup(optarg);
+			break;
 		case 'l':
 			g_options.log_destination = LOGGING_SYSLOG;
 			break;
@@ -374,6 +401,9 @@ int main(int argc, char *argv[])
 		case 'N':
 			g_options.noprinter_mode = 1;
 			break;
+		case 'B':
+			g_options.nobroadcast = 1;
+			break;
 		}
 	}
 
@@ -388,10 +418,15 @@ int main(int argc, char *argv[])
 		"  -p <portnum> Port number to bind against, error out if port already taken\n"
 		"  -P <portnum> Port number to bind against, use another port if port already\n"
 		"               taken\n"
+		"  -i <interface> Network interface to use. Default is the loopback interface\n"
+		"               (lo, localhost). As the loopback interface does not allow\n"
+		"               Bonjour broadcasting with Avahi, set up the dummy interface\n"
+		"               (dummy0) for Bonjour broadcasting.\n"
 		"  -l           Redirect logging to syslog\n"
 		"  -q           Enable verbose tracing\n"
 		"  -d           Debug mode for verbose output and no fork\n"
 		"  -n           No-fork mode\n"
+		"  -B           No-broadcast mode, do not Bonjour-/DNS-SD-broadcast\n"
 		"  -N           No-printer mode, debug/developer mode which makes ippusbxd\n"
 		"               run without IPP-over-USB printer\n"
 		, argv[0]);
