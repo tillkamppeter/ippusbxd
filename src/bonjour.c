@@ -259,6 +259,20 @@ register_printer(bonjour_t *bonjour_data,
   if (error)
     ERR("Error registering %s as IPP printer (_ipp._tcp): %d", dnssd_name,
 	error);
+  else {
+    error =
+      avahi_entry_group_add_service_subtype(bonjour_data->ipp_ref,
+					    (interface ?
+					     (int)if_nametoindex(interface) :
+					     AVAHI_IF_UNSPEC),
+					    AVAHI_PROTO_UNSPEC, 0,
+					    dnssd_name,
+					    "_ipp._tcp", NULL,
+					    "_print._sub._ipp._tcp");
+    if (error)
+      ERR("Error registering subtype for IPP printer %s (_print._sub._ipp._tcp): %d", dnssd_name,
+	  error);
+  }
 
  /*
   * Finally _http.tcp (HTTP) for the web interface...
