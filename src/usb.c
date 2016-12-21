@@ -79,20 +79,20 @@ static int is_our_device(libusb_device *dev,
 {
 	static const int SERIAL_MAX = 1024;
 	unsigned char serial[1024];
-	if (g_options.vendor_id || g_options.product_id)
-	  NOTE("Searching for device: VID %d, PID %d",
-	       g_options.vendor_id, g_options.product_id);
-	NOTE("Found device: VID %d, PID %d",
-	     desc.idVendor, desc.idProduct);
-	if ((g_options.vendor_id  && desc.idVendor  != g_options.vendor_id)  ||
-	    (g_options.product_id && desc.idProduct != g_options.product_id))
+	NOTE("Found device: VID %04x, PID %04x on Bus %03d, Device %03d",
+	     desc.idVendor, desc.idProduct,
+	     libusb_get_bus_number(dev), libusb_get_device_address(dev));
+	if ((g_options.vendor_id && desc.idVendor != g_options.vendor_id) ||
+	    (g_options.product_id && desc.idProduct != g_options.product_id) ||
+	    (g_options.bus &&
+	     libusb_get_bus_number(dev) != g_options.bus) ||
+	    (g_options.device &&
+	     libusb_get_device_address(dev) != g_options.device))
 		return 0;
 
 	if (g_options.serial_num == NULL)
 		return 1;
 
-	NOTE("Searching for device with serial number %s",
-	     g_options.serial_num);
 	libusb_device_handle *handle = NULL;
 	int status = libusb_open(dev, &handle);
 	if (status != 0) {
@@ -190,11 +190,26 @@ struct usb_sock_t *usb_open()
 	// Discover device and count interfaces ==---------------------------==
 	int selected_config = -1;
 	unsigned int selected_ipp_interface_count = 0;
-	int auto_pick = !(g_options.vendor_id ||
-	                  g_options.product_id ||
-	                  g_options.serial_num);
+	int auto_pick = !((g_options.vendor_id &&
+			   g_options.product_id) ||
+			  g_options.serial_num ||
+			  (g_options.bus &&
+			   g_options.device));
 
 	libusb_device *printer_device = NULL;
+
+	if (g_options.vendor_id || g_options.product_id)
+	  NOTE("Searching for device: VID %04x, PID %04x",
+	       g_options.vendor_id, g_options.product_id);
+	if (g_options.serial_num)
+	  NOTE("Searching for device with serial number %s",
+	       g_options.serial_num);
+	if (g_options.bus || g_options.device)
+	  NOTE("Searching for device: Bus %03d, Device %03d",
+	       g_options.bus, g_options.device);
+	if (auto_pick)
+	  NOTE("Searching for first IPP-over-USB-capable device available");
+
 	for (ssize_t i = 0; i < device_count; i++) {
 		libusb_device *candidate = device_list[i];
 		struct libusb_device_descriptor desc;
@@ -203,9 +218,16 @@ struct usb_sock_t *usb_open()
 		if (!is_our_device(candidate, desc))
 			continue;
 
+		// Save VID/PID for exit-on-unplug
+		if (g_options.vendor_id == 0)
+		  g_options.vendor_id = desc.idVendor;
+		if (g_options.product_id == 0)
+		  g_options.product_id = desc.idProduct;
+
 		bus = libusb_get_bus_number(candidate);
 		dev_addr = libusb_get_device_address(candidate);
-		NOTE("Printer connected on bus %d device %d", bus, dev_addr);
+		NOTE("Printer connected on bus %03d device %03d",
+		     bus, dev_addr);
 
 		for (uint8_t config_num = 0;
 		     config_num < desc.bNumConfigurations;
@@ -246,7 +268,7 @@ found_device:
 
 	if (printer_device == NULL) {
 		if (!auto_pick) {
-			ERR("No printer found by that vid, pid, serial");
+			ERR("No printer found by that vid, pid, serial or bus, device");
 		} else {
 			ERR("No IPP over USB printer found");
 		}

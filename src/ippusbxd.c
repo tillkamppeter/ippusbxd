@@ -331,7 +331,7 @@ cleanup_usb:
 
 static uint16_t strto16(const char *str)
 {
-	unsigned long val = strtoul(str, NULL, 16);
+	unsigned long val = strtoul(str, NULL, 0);
 	if (val > UINT16_MAX)
 		exit(1);
 	return (uint16_t)val;
@@ -340,11 +340,36 @@ static uint16_t strto16(const char *str)
 int main(int argc, char *argv[])
 {
 	int c;
+	int option_index = 0;
+	static struct option long_options[] = {
+	  {"vid",          required_argument, 0,  'v' },
+	  {"pid",          required_argument, 0,  'm' },
+	  {"serial",       required_argument, 0,  's' },
+	  {"bus",          required_argument, 0,  'b' },
+	  {"device",       required_argument, 0,  'D' },
+	  {"from-port",    required_argument, 0,  'P' },
+	  {"only-port",    required_argument, 0,  'p' },
+	  {"interface",    required_argument, 0,  'i' },
+	  {"logging",      no_argument,       0,  'l' },
+	  {"debug",        no_argument,       0,  'd' },
+	  {"verbose",      no_argument,       0,  'q' },
+	  {"no-fork",      no_argument,       0,  'n' },
+	  {"no-broadcast", no_argument,       0,  'B' },
+	  {"no-printer",   no_argument,       0,  'N' },
+	  {"help",         no_argument,       0,  'h' },
+	  {NULL,           0,                 0,  0   }
+	};
 	g_options.log_destination = LOGGING_STDERR;
 	g_options.only_desired_port = 1;
 	g_options.interface = "lo";
+	g_options.serial_num = NULL;
+	g_options.vendor_id = 0;
+	g_options.product_id = 0;
+	g_options.bus = 0;
+	g_options.device = 0;
 
-	while ((c = getopt(argc, argv, "qnhdp:P:i:s:lv:m:NB")) != -1) {
+	while ((c = getopt_long(argc, argv, "qnhdp:P:i:s:lv:m:NB",
+				long_options, &option_index)) != -1) {
 		switch (c) {
 		case '?':
 		case 'h':
@@ -395,6 +420,12 @@ int main(int argc, char *argv[])
 		case 'm':
 			g_options.product_id = strto16(optarg);
 			break;
+		case 'b':
+			g_options.bus = strto16(optarg);
+			break;
+		case 'D':
+			g_options.device = strto16(optarg);
+			break;
 		case 's':
 			g_options.serial_num = (unsigned char *)optarg;
 			break;
@@ -409,27 +440,47 @@ int main(int argc, char *argv[])
 
 	if (g_options.help_mode) {
 		printf(
-		"Usage: %s -v <vendorid> -m <productid> -p <port>\n"
+		"Usage: %s -v <vendorid> -m <productid> -s <serial> -P <port>\n"
+		"       %s --bus <bus> --device <device> -P <port>\n"
+		"       %s -h\n"
 		"Options:\n"
+		"  --help\n"
 		"  -h           Show this help message\n"
+		"  --vid <vid>\n"
 		"  -v <vid>     Vendor ID of desired printer\n"
+		"  --pid <pid>\n"
 		"  -m <pid>     Product ID of desired printer\n"
+		"  --serial <serial>\n"
 		"  -s <serial>  Serial number of desired printer\n"
+		"  --bus <bus>\n"
+		"  --device <device> USB bus and device numbers where the device is currently\n"
+		"               available (see output of \"lsusb\"). These numbers change when\n"
+		"               the device is disconnected and reconnected, this method of\n"
+		"               calling ippusbxd is only for direct call by UDEV.\n"
+		"  --only-port <portnum>\n"
 		"  -p <portnum> Port number to bind against, error out if port already taken\n"
+		"  --from-port <portnum>\n"
 		"  -P <portnum> Port number to bind against, use another port if port already\n"
 		"               taken\n"
+		"  --interface <interface>\n"
 		"  -i <interface> Network interface to use. Default is the loopback interface\n"
 		"               (lo, localhost). As the loopback interface does not allow\n"
 		"               Bonjour broadcasting with Avahi, set up the dummy interface\n"
 		"               (dummy0) for Bonjour broadcasting.\n"
+		"  --logging\n"
 		"  -l           Redirect logging to syslog\n"
+		"  --verbose\n"
 		"  -q           Enable verbose tracing\n"
+		"  --debug\n"
 		"  -d           Debug mode for verbose output and no fork\n"
+		"  --no-fork\n"
 		"  -n           No-fork mode\n"
+		"  --no-broadcast\n"
 		"  -B           No-broadcast mode, do not Bonjour-/DNS-SD-broadcast\n"
+		"  --no-printer\n"
 		"  -N           No-printer mode, debug/developer mode which makes ippusbxd\n"
 		"               run without IPP-over-USB printer\n"
-		, argv[0]);
+		, argv[0], argv[0], argv[0]);
 		return 0;
 	}
 

@@ -34,10 +34,12 @@ struct options {
         int noprinter_mode;
         int nobroadcast;
 
-	// Printer indentity
+	// Printer identity
 	unsigned char *serial_num;
 	int vendor_id;
 	int product_id;
+        int bus;
+        int device;
 };
 
 extern struct options g_options;
