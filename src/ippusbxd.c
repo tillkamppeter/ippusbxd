@@ -355,6 +355,7 @@ int main(int argc, char *argv[])
 	  {"serial",       required_argument, 0,  's' },
 	  {"bus",          required_argument, 0,  'b' },
 	  {"device",       required_argument, 0,  'D' },
+	  {"bus-device",   required_argument, 0,  'X' },
 	  {"from-port",    required_argument, 0,  'P' },
 	  {"only-port",    required_argument, 0,  'p' },
 	  {"interface",    required_argument, 0,  'i' },
@@ -434,6 +435,18 @@ int main(int argc, char *argv[])
 		case 'D':
 			g_options.device = strto16dec(optarg);
 			break;
+		case 'X':
+		{
+		        char *p = strchr(optarg, ':');
+			if (p == NULL) {
+			  ERR("Bus and device must be given in the format <bus>:<device>");
+			  return 3;
+			}
+			p ++;
+			g_options.bus = strto16dec(optarg);
+			g_options.device = strto16dec(p);
+			break;
+		}
 		case 's':
 			g_options.serial_num = (unsigned char *)optarg;
 			break;
@@ -461,8 +474,9 @@ int main(int argc, char *argv[])
 		"  --serial <serial>\n"
 		"  -s <serial>  Serial number of desired printer\n"
 		"  --bus <bus>\n"
-		"  --device <device> USB bus and device numbers where the device is currently\n"
-		"               available (see output of \"lsusb\"). These numbers change when\n"
+		"  --device <device>\n"
+		"  --bus-device <bus>:<device>\n"
+		"               USB bus and device numbers where the device is currently\n"
 		"               the device is disconnected and reconnected, this method of\n"
 		"               calling ippusbxd is only for direct call by UDEV. <bus> and\n"
 		"               <device> have to be given in decimal numbers.\n"
