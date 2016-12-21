@@ -329,9 +329,17 @@ cleanup_usb:
 	return;
 }
 
-static uint16_t strto16(const char *str)
+static uint16_t strto16hex(const char *str)
 {
-	unsigned long val = strtoul(str, NULL, 0);
+	unsigned long val = strtoul(str, NULL, 16);
+	if (val > UINT16_MAX)
+		exit(1);
+	return (uint16_t)val;
+}
+
+static uint16_t strto16dec(const char *str)
+{
+	unsigned long val = strtoul(str, NULL, 10);
 	if (val > UINT16_MAX)
 		exit(1);
 	return (uint16_t)val;
@@ -415,16 +423,16 @@ int main(int argc, char *argv[])
 			g_options.nofork_mode = 1;
 			break;
 		case 'v':
-			g_options.vendor_id = strto16(optarg);
+			g_options.vendor_id = strto16hex(optarg);
 			break;
 		case 'm':
-			g_options.product_id = strto16(optarg);
+			g_options.product_id = strto16hex(optarg);
 			break;
 		case 'b':
-			g_options.bus = strto16(optarg);
+			g_options.bus = strto16dec(optarg);
 			break;
 		case 'D':
-			g_options.device = strto16(optarg);
+			g_options.device = strto16dec(optarg);
 			break;
 		case 's':
 			g_options.serial_num = (unsigned char *)optarg;
@@ -447,16 +455,17 @@ int main(int argc, char *argv[])
 		"  --help\n"
 		"  -h           Show this help message\n"
 		"  --vid <vid>\n"
-		"  -v <vid>     Vendor ID of desired printer\n"
+		"  -v <vid>     Vendor ID of desired printer (as hexadecimal number)\n"
 		"  --pid <pid>\n"
-		"  -m <pid>     Product ID of desired printer\n"
+		"  -m <pid>     Product ID of desired printer (as hexadecimal number)\n"
 		"  --serial <serial>\n"
 		"  -s <serial>  Serial number of desired printer\n"
 		"  --bus <bus>\n"
 		"  --device <device> USB bus and device numbers where the device is currently\n"
 		"               available (see output of \"lsusb\"). These numbers change when\n"
 		"               the device is disconnected and reconnected, this method of\n"
-		"               calling ippusbxd is only for direct call by UDEV.\n"
+		"               calling ippusbxd is only for direct call by UDEV. <bus> and\n"
+		"               <device> have to be given in decimal numbers.\n"
 		"  --only-port <portnum>\n"
 		"  -p <portnum> Port number to bind against, error out if port already taken\n"
 		"  --from-port <portnum>\n"
