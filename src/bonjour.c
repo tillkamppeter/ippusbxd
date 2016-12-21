@@ -57,16 +57,12 @@ dnssd_client_cb(
   switch (state)
   {
     default :
-        fprintf(stderr, "Ignore Avahi state %d.\n", state);
+        NOTE("Ignore Avahi state %d.\n", state);
 	break;
 
     case AVAHI_CLIENT_FAILURE:
 	if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED)
-	{
-	  fputs("Avahi server crashed, exiting.\n", stderr);
-	  exit(1);
-	}
-	break;
+	  ERR_AND_EXIT("Avahi server crashed, exiting.\n");
   }
 }
 
@@ -76,19 +72,13 @@ dnssd_init(bonjour_t *bonjour_data)
   int error;			/* Error code, if any */
 
   if ((bonjour_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL)
-  {
-    fputs("Error: Unable to initialize Bonjour.\n", stderr);
-    exit(1);
-  }
+    ERR_AND_EXIT("Error: Unable to initialize Bonjour.\n", stderr);
 
   if ((bonjour_data->DNSSDClient =
        avahi_client_new(avahi_threaded_poll_get(bonjour_data->DNSSDMaster),
 			AVAHI_CLIENT_NO_FAIL,
 			dnssd_client_cb, NULL, &error)) == NULL)
-  {
-    fputs("Error: Unable to initialize Bonjour.\n", stderr);
-    exit(1);
-  }
+    ERR_AND_EXIT("Error: Unable to initialize Bonjour.\n", stderr);
 
   avahi_threaded_poll_start(bonjour_data->DNSSDMaster);
 }
