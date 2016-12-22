@@ -1,0 +1,85 @@
+.TH IPPUSBXD 8
+.SH NAME
+ippusbxd \- Communication driver for IPP-over-USB class printers
+.SH SYNOPSIS
+.B ippusbxd
+[\fB\-v\fR|\fB--vid \fR \fIVENDOR_ID\fR]
+[\fB\-m\fR|\fB--pid \fR \fIPRODUCT_ID\fR]
+[\fB\-s\fR|\fB--serial \fR \fISERIAL_NUMBER\fR]
+[\fB\--bus \fR \fIBUS\fR]
+[\fB\--device \fR \fIDEVICE\fR]
+[\fB\--bus-device \fR \fIBUS\fR\fB:\fR\fIDEVICE\fR]
+[\fB\-p\fR|\fB--only-port \fR \fIPORT_NUMBER\fR]
+[\fB\-P\fR|\fB--from-port \fR \fIPORT_NUMBER\fR]
+[\fB\-i\fR|\fB--interface \fR \fIINTERFACE\fR]
+[\fB\-l\fR|\fB--logging\fR]
+[\fB\-q\fR|\fB--verbose\fR]
+[\fB\-d\fR|\fB--debug\fR]
+[\fB\-n\fR|\fB--no-fork\fR]
+[\fB\-B\fR|\fB--no-broadcast\fR]
+[\fB\-N\fR|\fB--no-printer\fR]
+.SH DESCRIPTION
+.B ippusbxd
+connects to a IPP-over-USB printer and exposes it to a network interface (like localhost or dummy0) on a given port, so that the printer can be accessed like an IPP network printer. If the selected network interface does multicasting the printer is also advertised via Bonjour/DNS-SD on the interface, so \fBCUPS\fP and \fBcups-browsed(8)\fP will auto-discover the printer for easy setup of a print queue.
+
+Upon successful startup the TCP port it is listening on and the process ID of the daemon are printed to stdout. It will shut itself down when the connected printer disconnects. When not specifying information about the desired printer, \fBippusbxd\fR scans the USB and connects to the first available IPP-over-USB printer.
+.SH OPTIONS
+.TP
+.B
+\fB-h\fP, \fB--help\fP
+Show help message.
+.TP
+.B
+\fB-v\fP \fIVENDOR_ID\fR, \fB--vid\fP \fIVENDOR_ID\fR
+USB vendor ID of desired printer.
+.TP
+.B
+\fB-m\fP \fIPRODUCT_ID\fR, \fB--pid\fP \fIPRODUCT_ID\fR
+USB product ID of desired printer.
+.TP
+.B
+\fB-s\fP \fISERIAL_NUMBER\fR, \fB--serial\fP \fISERIAL_NUMBER\fR
+Serial number of desired printer.
+.TP
+.B
+\fB--bus\fP \fIBUS\fR \fB--device\fP \fIDEVICE\fR, \fB--bus-device\fP \fIBUS\fR\fB:\fP\fIDEVICE\fR
+USB bus and device numbers where the device is currently connected (see output of \fBlsusb(8)\fP). Note that these numbers change when the device is disconnected and reconnected. This method of calling \fBippusbxd\fP is only for calling via UDEV. \fIBUS\fR and \fIDEVICE\fR have to be given in decimal numbers.
+.TP
+.B
+\fB-p\fP \fIPORT_NUMBER\fR, \fB--only-port\fP \fIPORT_NUMBER\fR
+Port number \fBippusbxd\fP will expose the printer over. If this port is already taken, \fBippusbxd\fP will error out.
+.TP
+.B
+\fB-P\fP \fIPORT_NUMBER\fR, \fB--from-port\fP \fIPORT_NUMBER\fR
+Port number \fBippusbxd\fP will expose the printer over. If this port is already taken, \fBippusbxd\fP will increase the port number by 1 and try again until it finds a free port.
+.TP
+.B
+\fB-i\fP \fIINTERFACE\fR, \fB--interface\fP \fIINTERFACE\fR
+Network interface to use. Default is the loopback interface (lo, localhost). As the loopback interface does not allow Bonjour broadcasting with Avahi, set up the dummy interface (dummy0) for Bonjour broadcasting.
+.TP
+.B
+\fB-l\fP, \fB--logging\fP
+Send all logging to syslog.
+.TP
+.B
+\fB-q\fP, \fB--verbose\fP
+Enable verbose logging.
+.TP
+.B
+\fB-d\fP, \fB--debug\fP
+Enables debug mode.
+Implies \-q and \-n.
+Verbose logging will be sent to stdout
+.TP
+.B
+\fB-n\fP, \fB--no-fork\fP
+Enables no fork mode.
+Disables deamonization.
+.TP
+.B
+\fB-B\fP, \fB--no-broadcast\fP
+No-broadcast mode, do not Bonjour-/DNS-SD-broadcast
+.TP
+.B
+\fB-N\fP, \fB--no-printer\fP
+No-printer mode, debug/developer mode which makes \fBippusbxd\fP run without IPP-over-USB printer
