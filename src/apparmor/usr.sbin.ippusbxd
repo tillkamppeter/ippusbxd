@@ -6,19 +6,28 @@
 
 /usr/sbin/ippusbxd {
   #include <abstractions/base>
+  #include <abstractions/dbus>
+
+  capability wake_alarm,
 
   /usr/sbin/ippusbxd mr,
 
   # Scanning for USB devices
   /dev/bus/usb/ r,
+  /dev/bus/usb/*/* rw,
   /etc/udev/udev.conf r,
   /sys/bus/ r,
   /sys/bus/usb/devices/ r,
   /sys/class/ r,
-  /sys/devices/*/*/*/usb8/busnum r,
-  /sys/devices/*/*/*/usb8/descriptors r,
-  /sys/devices/*/*/*/usb8/devnum r,
-  /sys/devices/*/*/*/usb8/speed r,
-  /sys/devices/*/*/*/usb8/uevent r,
+  /sys/devices/** r,
+  /run/udev/data/** r,
+
+  # Network access
+  network inet raw,
+  network inet6 raw,
+  network inet stream,
+  network inet6 stream,
+  network netlink raw,
+  network netlink stream,
 
 }
