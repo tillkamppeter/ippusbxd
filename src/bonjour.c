@@ -198,7 +198,7 @@ register_printer(bonjour_t *bonjour_data,
   ipp_txt = NULL;
   ipp_txt = avahi_string_list_add_printf(ipp_txt, "rp=ipp/print");
   ipp_txt = avahi_string_list_add_printf(ipp_txt, "ty=%s %s", make, model);
-  ipp_txt = avahi_string_list_add_printf(ipp_txt, "adminurl=%s", temp);
+  /* ipp_txt = avahi_string_list_add_printf(ipp_txt, "adminurl=%s", temp); */
   ipp_txt = avahi_string_list_add_printf(ipp_txt, "product=(%s)", model);
   ipp_txt = avahi_string_list_add_printf(ipp_txt, "pdl=%s", formats);
   ipp_txt = avahi_string_list_add_printf(ipp_txt, "Color=U");
