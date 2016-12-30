@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -60,9 +61,10 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
 	      (ifa->ifa_addr->sa_family == AF_INET))
 	    break;
 	}
-	if (ifa == NULL)
-	  ERR_AND_EXIT("Interface %s does not exist or IP not found.",
-		       interface);
+	if (ifa == NULL) {
+	  ERR("Interface %s does not exist or IPv4 IP not found.", interface);
+	  goto error;
+	}
 
 	// Configure socket params
 	struct sockaddr_in addr, *if_addr;
@@ -74,7 +76,7 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
 	//addr.sin_addr.s_addr = htonl(0xC0A8000F);
 	NOTE("IPv4: Binding to %s:%d", inet_ntoa(if_addr->sin_addr), port);
 
-	// Bind to localhost
+	// Bind to the interface/IP/port
 	if (bind(this->sd,
 	        (struct sockaddr *)&addr,
 	        sizeof addr) < 0) {
@@ -128,19 +130,29 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
 	      (ifa->ifa_addr->sa_family == AF_INET6))
 	    break;
 	}
-	if (ifa == NULL)
-	  ERR_AND_EXIT("Interface %s does not exist or IP not found.",
-		       interface);
+	if (ifa == NULL) {
+	  ERR("Interface %s does not exist or IPv6 IP not found.", interface);
+	  goto error;
+	}
 
 	// Configure socket params
 	struct sockaddr_in6 addr, *if_addr;
+	char buf[64];
 	if_addr = (struct sockaddr_in6 *) ifa->ifa_addr;
 	memset(&addr, 0, sizeof addr);
 	addr.sin6_family = AF_INET6;
 	addr.sin6_port = htons(port);
 	addr.sin6_addr = if_addr->sin6_addr;
+	addr.sin6_scope_id=if_nametoindex(interface);
+	if (inet_ntop(addr.sin6_family, (void *)&(addr.sin6_addr),
+		      buf, sizeof(buf)) == NULL) {
+	  ERR("Could not determine IPv6 IP address for interface %s.",
+	      interface);
+	  goto error;
+	}
+	NOTE("IPv6: Binding to [%s]:%d", buf, port);
 
-	// Bind to localhost
+	// Bind to the interface/IP/port
 	if (bind(this->sd,
 	        (struct sockaddr *)&addr,
 	        sizeof addr) < 0) {
