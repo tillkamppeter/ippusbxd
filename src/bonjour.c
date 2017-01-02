@@ -258,9 +258,11 @@ register_printer(bonjour_t *bonjour_data,
 					    AVAHI_PROTO_UNSPEC, 0,
 					    dnssd_name,
 					    "_ipp._tcp", NULL,
-					    "_print._sub._ipp._tcp");
+					    (appleraster && !pwgraster ?
+					     "_universal._sub._ipp._tcp" :
+					     "_print._sub._ipp._tcp"));
     if (error)
-      ERR("Error registering subtype for IPP printer %s (_print._sub._ipp._tcp): %d", dnssd_name,
+      ERR("Error registering subtype for IPP printer %s (_print._sub._ipp._tcp or _universal._sub._ipp._tcp): %d", dnssd_name,
 	  error);
   }
 
