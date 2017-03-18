@@ -218,6 +218,8 @@ register_printer(bonjour_t *bonjour_data,
   * Register _printer._tcp (LPD) with port 0 to reserve the service name...
   */
 
+  NOTE("Registering printer %s on interface %s for Bonjour broadcasting ...", dnssd_name, interface);
+
   bonjour_data->ipp_ref = avahi_entry_group_new(bonjour_data->DNSSDClient,
 						dnssd_callback, NULL);
   error =
@@ -232,6 +234,8 @@ register_printer(bonjour_t *bonjour_data,
   if (error)
     ERR("Error registering %s as Unix printer (_printer._tcp): %d", dnssd_name,
 	error);
+  else
+    NOTE("Registered %s as Unix printer (_printer._tcp).", dnssd_name);
 
  /*
   * Then register the _ipp._tcp (IPP)...
@@ -250,6 +254,7 @@ register_printer(bonjour_t *bonjour_data,
     ERR("Error registering %s as IPP printer (_ipp._tcp): %d", dnssd_name,
 	error);
   else {
+    NOTE("Registered %s as IPP printer (_ipp._tcp).", dnssd_name);
     error =
       avahi_entry_group_add_service_subtype(bonjour_data->ipp_ref,
 					    (interface ?
@@ -264,6 +269,8 @@ register_printer(bonjour_t *bonjour_data,
     if (error)
       ERR("Error registering subtype for IPP printer %s (_print._sub._ipp._tcp or _universal._sub._ipp._tcp): %d", dnssd_name,
 	  error);
+    else
+      NOTE("Registered subtype for IPP printer %s (_print._sub._ipp._tcp or _universal._sub._ipp._tcp).", dnssd_name);
   }
 
  /*
@@ -283,6 +290,7 @@ register_printer(bonjour_t *bonjour_data,
     ERR("Error registering web interface of %s (_http._tcp): %d", dnssd_name,
 	error);
   else {
+    NOTE("Registered web interface of %s (_http._tcp).", dnssd_name);
     error =
       avahi_entry_group_add_service_subtype(bonjour_data->ipp_ref,
 					    (interface ?
@@ -295,6 +303,8 @@ register_printer(bonjour_t *bonjour_data,
     if (error)
       ERR("Error registering subtype for web interface of %s (_printer._sub._http._tcp): %d", dnssd_name,
 	  error);
+    else
+      NOTE("Registered subtype for web interface of %s (_printer._sub._http._tcp).", dnssd_name);
   }
 
  /*
