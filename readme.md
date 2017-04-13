@@ -73,7 +73,7 @@ driverless printing.
 A remark to driverless printing: There are two very similar standards:
 AirPrint, a proprietary standard from Apple and IPP Everywhere, an
 open standard of the Printer Working Group (PWG, http://www.pwg.org/).
-Both use the same methods of Bonjour broadcasting of network printers,
+Both use the same methods of DNS-SD broadcasting of network printers,
 IPP-over-USB via the USB interface class 7, subclass 1, protocol 4,
 and IPP 2.0 with all its attributes for querying of capabilities,
 sending jobs with options as IPP attributes, and monitoring the status
@@ -132,16 +132,16 @@ browser, but the printer cannot get auto-discovered by cups-browsed or
 by CUPS backends like dnssd or driverless, making it awkward to create
 a print queue for the printer. This is because the loopback interface
 (which provides "localhost") is not multicast-capable and therefore
-cannot get Bonjour-broadcasted by Avahi.
+cannot get DNS-SD-broadcasted by Avahi.
 
-Now one could thing why not simply use the standard network interface
+Now one could think why not simply use the standard network interface
 "eth0" or "wlan0"? The problem here is that the printer gets
 broadcasted and accessible in the whole local network, so we share our
-USB printer and do not want it. In addition, if our computer s not
+USB printer and do not want it. In addition, if our computer is not
 connected to a network, these interfaces are not available.
 
 "dummy0" is always local-only but does multicast and therefore gets
-Bonjour-broadcasted by Avahi, and that only on the local machine. So
+DNS-SD-broadcasted by Avahi, and that only on the local machine. So
 we have the full emulation of a driverless network printer only on our
 local machine, as we want a USB printer only be available on our local
 machine.
@@ -162,7 +162,7 @@ http://10.0.0.1:60000/
 
 (if you have problems with the Chrome browser, use Firefox).
 
-It is also Bonjour-broadcasted via Avahi on the dummy0 interface.
+It is also DNS-SD-broadcasted via Avahi on the dummy0 interface.
 
 To set up a print queue you could simply run
 

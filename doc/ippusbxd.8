@@ -20,7 +20,7 @@ ippusbxd \- Communication driver for IPP-over-USB class printers
 [\fB\-N\fR|\fB--no-printer\fR]
 .SH DESCRIPTION
 .B ippusbxd
-connects to a IPP-over-USB printer and exposes it to a network interface (like localhost or dummy0) on a given port, so that the printer can be accessed like an IPP network printer. If the selected network interface does multicasting the printer is also advertised via Bonjour/DNS-SD on the interface, so \fBCUPS\fP and \fBcups-browsed(8)\fP will auto-discover the printer for easy setup of a print queue.
+connects to a IPP-over-USB printer and exposes it to a network interface (like localhost or dummy0) on a given port, so that the printer can be accessed like an IPP network printer. If the selected network interface does multicasting the printer is also advertised via DNS-SD on the interface, so \fBCUPS\fP and \fBcups-browsed(8)\fP will auto-discover the printer for easy setup of a print queue.
 
 Upon successful startup the TCP port it is listening on and the process ID of the daemon are printed to stdout. It will shut itself down when the connected printer disconnects. When not specifying information about the desired printer, \fBippusbxd\fR scans the USB and connects to the first available IPP-over-USB printer.
 .SH OPTIONS
@@ -55,7 +55,7 @@ Port number \fBippusbxd\fP will expose the printer over. If this port is already
 .TP
 .B
 \fB-i\fP \fIINTERFACE\fR, \fB--interface\fP \fIINTERFACE\fR
-Network interface to use. Default is the loopback interface (lo, localhost). As the loopback interface does not allow Bonjour broadcasting with Avahi, set up the dummy interface (dummy0) for Bonjour broadcasting.
+Network interface to use. Default is the loopback interface (lo, localhost). As the loopback interface does not allow DNS-SD broadcasting with Avahi, set up the dummy interface (dummy0) for DNS-SD broadcasting.
 .TP
 .B
 \fB-l\fP, \fB--logging\fP
@@ -78,7 +78,7 @@ Disables deamonization.
 .TP
 .B
 \fB-B\fP, \fB--no-broadcast\fP
-No-broadcast mode, do not Bonjour-/DNS-SD-broadcast
+No-broadcast mode, do not DNS-SD-broadcast
 .TP
 .B
 \fB-N\fP, \fB--no-printer\fP
