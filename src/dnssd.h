@@ -19,13 +19,13 @@
 #include <avahi-common/error.h>
 #include <avahi-common/thread-watch.h>
 
-typedef struct bonjour_s {
+typedef struct dnssd_s {
   AvahiThreadedPoll *DNSSDMaster;
   AvahiClient       *DNSSDClient;
   AvahiEntryGroup   *ipp_ref;
-} bonjour_t;
+} dnssd_t;
 
-void		dnssd_init(bonjour_t *bonjour_data);
-void		dnssd_shutdown(bonjour_t *bonjour_data);
-int		register_printer(bonjour_t *bonjour_data,
+void		dnssd_init(dnssd_t *dnssd_data);
+void		dnssd_shutdown(dnssd_t *dnssd_data);
+int		register_printer(dnssd_t *dnssd_data,
 				 char *device_id, char *interface, int port);

@@ -18,11 +18,11 @@
 #include <string.h>
 #include <net/if.h>
 
-#include "bonjour.h"
+#include "dnssd.h"
 #include "logging.h"
 
 /*
- * 'dnssd_callback()' - Handle Bonjour registration events.
+ * 'dnssd_callback()' - Handle DNS-SD registration events.
  */
 
 static void
@@ -67,41 +67,41 @@ dnssd_client_cb(
 }
 
 void
-dnssd_init(bonjour_t *bonjour_data)
+dnssd_init(dnssd_t *dnssd_data)
 {
   int error;			/* Error code, if any */
 
-  if ((bonjour_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL)
-    ERR_AND_EXIT("Error: Unable to initialize Bonjour.\n", stderr);
+  if ((dnssd_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL)
+    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.\n", stderr);
 
-  if ((bonjour_data->DNSSDClient =
-       avahi_client_new(avahi_threaded_poll_get(bonjour_data->DNSSDMaster),
+  if ((dnssd_data->DNSSDClient =
+       avahi_client_new(avahi_threaded_poll_get(dnssd_data->DNSSDMaster),
 			AVAHI_CLIENT_NO_FAIL,
 			dnssd_client_cb, NULL, &error)) == NULL)
-    ERR_AND_EXIT("Error: Unable to initialize Bonjour.\n", stderr);
+    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.\n", stderr);
 
-  avahi_threaded_poll_start(bonjour_data->DNSSDMaster);
+  avahi_threaded_poll_start(dnssd_data->DNSSDMaster);
 }
 
 void
-dnssd_shutdown(bonjour_t *bonjour_data) {
-  avahi_threaded_poll_lock(bonjour_data->DNSSDMaster);
-  if (bonjour_data->ipp_ref)
-    avahi_entry_group_free(bonjour_data->ipp_ref);
-  avahi_threaded_poll_unlock(bonjour_data->DNSSDMaster);
+dnssd_shutdown(dnssd_t *dnssd_data) {
+  avahi_threaded_poll_lock(dnssd_data->DNSSDMaster);
+  if (dnssd_data->ipp_ref)
+    avahi_entry_group_free(dnssd_data->ipp_ref);
+  avahi_threaded_poll_unlock(dnssd_data->DNSSDMaster);
 }
 
 /*
- * 'register_printer()' - Register a printer object via Bonjour.
+ * 'register_printer()' - Register a printer object via DNS-SD.
  */
 
 int
-register_printer(bonjour_t *bonjour_data,
+register_printer(dnssd_t *dnssd_data,
 		 char      *device_id,
 		 char      *interface,
 		 int       port)
 {
-  AvahiStringList *ipp_txt;             /* Bonjour IPP TXT record */
+  AvahiStringList *ipp_txt;             /* DNS-SD IPP TXT record */
   char            temp[256];            /* Subtype service string */
   char            dnssd_name[1024];
   char            *dev_id = NULL;
@@ -212,18 +212,18 @@ register_printer(bonjour_t *bonjour_data,
   ipp_txt = avahi_string_list_add_printf(ipp_txt, "qtotal=1");
   free(dev_id);
 
-  avahi_threaded_poll_lock(bonjour_data->DNSSDMaster);
+  avahi_threaded_poll_lock(dnssd_data->DNSSDMaster);
 
  /*
   * Register _printer._tcp (LPD) with port 0 to reserve the service name...
   */
 
-  NOTE("Registering printer %s on interface %s for Bonjour broadcasting ...", dnssd_name, interface);
+  NOTE("Registering printer %s on interface %s for DNS-SD broadcasting ...", dnssd_name, interface);
 
-  bonjour_data->ipp_ref = avahi_entry_group_new(bonjour_data->DNSSDClient,
+  dnssd_data->ipp_ref = avahi_entry_group_new(dnssd_data->DNSSDClient,
 						dnssd_callback, NULL);
   error =
-    avahi_entry_group_add_service_strlst(bonjour_data->ipp_ref,
+    avahi_entry_group_add_service_strlst(dnssd_data->ipp_ref,
 					 (interface ?
 					  (int)if_nametoindex(interface) :
 					  AVAHI_IF_UNSPEC),
@@ -242,7 +242,7 @@ register_printer(bonjour_t *bonjour_data,
   */
 
   error =
-    avahi_entry_group_add_service_strlst(bonjour_data->ipp_ref,
+    avahi_entry_group_add_service_strlst(dnssd_data->ipp_ref,
 					 (interface ?
 					  (int)if_nametoindex(interface) :
 					  AVAHI_IF_UNSPEC),
@@ -256,7 +256,7 @@ register_printer(bonjour_t *bonjour_data,
   else {
     NOTE("Registered %s as IPP printer (_ipp._tcp).", dnssd_name);
     error =
-      avahi_entry_group_add_service_subtype(bonjour_data->ipp_ref,
+      avahi_entry_group_add_service_subtype(dnssd_data->ipp_ref,
 					    (interface ?
 					     (int)if_nametoindex(interface) :
 					     AVAHI_IF_UNSPEC),
@@ -278,7 +278,7 @@ register_printer(bonjour_t *bonjour_data,
   */
 
   error =
-    avahi_entry_group_add_service_strlst(bonjour_data->ipp_ref,
+    avahi_entry_group_add_service_strlst(dnssd_data->ipp_ref,
 					 (interface ?
 					  (int)if_nametoindex(interface) :
 					  AVAHI_IF_UNSPEC),
@@ -292,7 +292,7 @@ register_printer(bonjour_t *bonjour_data,
   else {
     NOTE("Registered web interface of %s (_http._tcp).", dnssd_name);
     error =
-      avahi_entry_group_add_service_subtype(bonjour_data->ipp_ref,
+      avahi_entry_group_add_service_subtype(dnssd_data->ipp_ref,
 					    (interface ?
 					     (int)if_nametoindex(interface) :
 					     AVAHI_IF_UNSPEC),
@@ -311,8 +311,8 @@ register_printer(bonjour_t *bonjour_data,
   * Commit it...
   */
 
-  avahi_entry_group_commit(bonjour_data->ipp_ref);
-  avahi_threaded_poll_unlock(bonjour_data->DNSSDMaster);
+  avahi_entry_group_commit(dnssd_data->ipp_ref);
+  avahi_threaded_poll_unlock(dnssd_data->DNSSDMaster);
 
   avahi_string_list_free(ipp_txt);
 

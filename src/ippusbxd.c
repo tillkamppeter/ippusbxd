@@ -27,7 +27,7 @@
 #include "http.h"
 #include "tcp.h"
 #include "usb.h"
-#include "bonjour.h"
+#include "dnssd.h"
 
 struct service_thread_param {
 	struct tcp_conn_t *tcp;
@@ -205,8 +205,8 @@ static void start_daemon()
 {
 	// Capture USB device if not in no-printer mode
 	struct usb_sock_t *usb_sock;
-	// Bonjour broadcasting of the printer via Avahi
-	bonjour_t *bonjour_data = NULL;
+	// DNS-SD broadcasting of the printer via Avahi
+	dnssd_t *dnssd_data = NULL;
 
 	if (g_options.noprinter_mode == 0) {
 		usb_sock = usb_open();
@@ -265,16 +265,16 @@ static void start_daemon()
 	if (usb_can_callback(usb_sock))
 		usb_register_callback(usb_sock);
 
-	// Bonjour-broadcast the printer on the local machine so
+	// DNS-SD-broadcast the printer on the local machine so
 	// that cups-browsed and ippfind will discover it (does not work
 	// with the loopback interface "lo")
 	if (usb_sock && g_options.nobroadcast == 0 &&
 	    strcasecmp(g_options.interface, "lo") != 0) {
-	  bonjour_data = calloc(1, sizeof(bonjour_t));
-	  if (bonjour_data == NULL)
-	    ERR_AND_EXIT("Unable to allocate memory for Bonjour broadcast data.");
-	  dnssd_init(bonjour_data);
-	  register_printer(bonjour_data, usb_sock->device_id,
+	  dnssd_data = calloc(1, sizeof(dnssd_t));
+	  if (dnssd_data == NULL)
+	    ERR_AND_EXIT("Unable to allocate memory for DNS-SD broadcast data.");
+	  dnssd_init(dnssd_data);
+	  register_printer(dnssd_data, usb_sock->device_id,
 			   g_options.interface, real_port);
 	}
 
@@ -316,8 +316,8 @@ static void start_daemon()
 	}
 
 cleanup_tcp:
-	if (bonjour_data != NULL)
-	  dnssd_shutdown(bonjour_data);
+	if (dnssd_data != NULL)
+	  dnssd_shutdown(dnssd_data);
 
 	if (tcp_socket!= NULL)
 		tcp_close(tcp_socket);
@@ -489,8 +489,8 @@ int main(int argc, char *argv[])
 		"  --interface <interface>\n"
 		"  -i <interface> Network interface to use. Default is the loopback interface\n"
 		"               (lo, localhost). As the loopback interface does not allow\n"
-		"               Bonjour broadcasting with Avahi, set up the dummy interface\n"
-		"               (dummy0) for Bonjour broadcasting.\n"
+		"               DNS-SD broadcasting with Avahi, set up the dummy interface\n"
+		"               (dummy0) for DNS-SD broadcasting.\n"
 		"  --logging\n"
 		"  -l           Redirect logging to syslog\n"
 		"  --verbose\n"
@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
 		"  --no-fork\n"
 		"  -n           No-fork mode\n"
 		"  --no-broadcast\n"
-		"  -B           No-broadcast mode, do not Bonjour-/DNS-SD-broadcast\n"
+		"  -B           No-broadcast mode, do not DNS-SD-/DNS-SD-broadcast\n"
 		"  --no-printer\n"
 		"  -N           No-printer mode, debug/developer mode which makes ippusbxd\n"
 		"               run without IPP-over-USB printer\n"

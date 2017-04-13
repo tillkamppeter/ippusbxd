@@ -36,7 +36,7 @@ tcp.c
 usb.c
 logging.c
 options.c
-bonjour.c
+dnssd.c
 )
 target_link_libraries(ippusbxd ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(ippusbxd ${LIBUSB_LIBRARIES})
