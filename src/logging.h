@@ -14,6 +14,8 @@
 
 #pragma once
 #include <pthread.h> // For pthread_self()
+#include "options.h"
+#include "dnssd.h"
 #define TID() (pthread_self())
 
 enum log_level {
@@ -47,7 +49,7 @@ enum log_level {
 #define CONF_1(msg) BASE_LOG(LOGGING_CONFORMANCE, "<%d>Standard Conformance Failure: " msg "\n", TID())
 #define CONF_2(msg, ...) BASE_LOG(LOGGING_CONFORMANCE, "<%d>Standard Conformance Failure: " msg "\n", TID(), __VA_ARGS__)
 
-#define ERR_AND_EXIT(...) do { ERR(__VA_ARGS__); exit(-1);} while (0)
+#define ERR_AND_EXIT(...) do { ERR(__VA_ARGS__); if (g_options.dnssd_data != NULL) dnssd_shutdown(g_options.dnssd_data); exit(-1);} while (0)
 
 void BASE_LOG(enum log_level, const char *, ...);
 char* hexdump (void *addr, int len);
