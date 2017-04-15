@@ -14,6 +14,7 @@
 
 #pragma once
 #include <stdint.h>
+#include "dnssd.h"
 
 enum log_target {
 	LOGGING_STDERR,
@@ -40,6 +41,9 @@ struct options {
 	int product_id;
         int bus;
         int device;
+
+        // Global variables
+        dnssd_t *dnssd_data;
 };
 
 extern struct options g_options;

@@ -57,12 +57,12 @@ dnssd_client_cb(
   switch (state)
   {
     default :
-        NOTE("Ignore Avahi state %d.\n", state);
+        NOTE("Ignore Avahi state %d.", state);
 	break;
 
     case AVAHI_CLIENT_FAILURE:
 	if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED)
-	  ERR_AND_EXIT("Avahi server crashed, exiting.\n");
+	  ERR_AND_EXIT("Avahi server crashed, exiting.");
   }
 }
 
@@ -72,15 +72,16 @@ dnssd_init(dnssd_t *dnssd_data)
   int error;			/* Error code, if any */
 
   if ((dnssd_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL)
-    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.\n", stderr);
+    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.", stderr);
 
   if ((dnssd_data->DNSSDClient =
        avahi_client_new(avahi_threaded_poll_get(dnssd_data->DNSSDMaster),
 			AVAHI_CLIENT_NO_FAIL,
 			dnssd_client_cb, NULL, &error)) == NULL)
-    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.\n", stderr);
+    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.", stderr);
 
   avahi_threaded_poll_start(dnssd_data->DNSSDMaster);
+  NOTE("DNS-SD initialized.");
 }
 
 void
@@ -89,6 +90,7 @@ dnssd_shutdown(dnssd_t *dnssd_data) {
   if (dnssd_data->ipp_ref)
     avahi_entry_group_free(dnssd_data->ipp_ref);
   avahi_threaded_poll_unlock(dnssd_data->DNSSDMaster);
+  NOTE("DNS-SD shut down.");
 }
 
 /*

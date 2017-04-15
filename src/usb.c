@@ -23,6 +23,7 @@
 #include <libusb.h>
 
 #include "options.h"
+#include "dnssd.h"
 #include "logging.h"
 #include "http.h"
 #include "usb.h"
@@ -474,8 +475,14 @@ static int LIBUSB_CALL usb_exit_on_unplug(libusb_context *context,
 	struct libusb_device_descriptor desc;
 	libusb_get_device_descriptor(device, &desc);
 
-	if (is_our_device(device, desc))
+	if (is_our_device(device, desc)) {
+
+		// Unregister DNS-SD for printer on Avahi
+		if (g_options.dnssd_data != NULL)
+			dnssd_shutdown(g_options.dnssd_data);
+
 		exit(0);
+	}
 
 	return 0;
 }

@@ -205,8 +205,6 @@ static void start_daemon()
 {
 	// Capture USB device if not in no-printer mode
 	struct usb_sock_t *usb_sock;
-	// DNS-SD broadcasting of the printer via Avahi
-	dnssd_t *dnssd_data = NULL;
 
 	if (g_options.noprinter_mode == 0) {
 		usb_sock = usb_open();
@@ -270,11 +268,11 @@ static void start_daemon()
 	// with the loopback interface "lo")
 	if (usb_sock && g_options.nobroadcast == 0 &&
 	    strcasecmp(g_options.interface, "lo") != 0) {
-	  dnssd_data = calloc(1, sizeof(dnssd_t));
-	  if (dnssd_data == NULL)
+	  g_options.dnssd_data = calloc(1, sizeof(dnssd_t));
+	  if (g_options.dnssd_data == NULL)
 	    ERR_AND_EXIT("Unable to allocate memory for DNS-SD broadcast data.");
-	  dnssd_init(dnssd_data);
-	  register_printer(dnssd_data, usb_sock->device_id,
+	  dnssd_init(g_options.dnssd_data);
+	  register_printer(g_options.dnssd_data, usb_sock->device_id,
 			   g_options.interface, real_port);
 	}
 
@@ -316,8 +314,8 @@ static void start_daemon()
 	}
 
 cleanup_tcp:
-	if (dnssd_data != NULL)
-	  dnssd_shutdown(dnssd_data);
+	if (g_options.dnssd_data != NULL)
+	  dnssd_shutdown(g_options.dnssd_data);
 
 	if (tcp_socket!= NULL)
 		tcp_close(tcp_socket);
