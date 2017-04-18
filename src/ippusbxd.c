@@ -274,8 +274,7 @@ static void start_daemon()
 	// DNS-SD-broadcast the printer on the local machine so
 	// that cups-browsed and ippfind will discover it (does not work
 	// with the loopback interface "lo")
-	if (usb_sock && g_options.nobroadcast == 0 &&
-	    strcasecmp(g_options.interface, "lo") != 0) {
+	if (usb_sock && g_options.nobroadcast == 0) {
 	  g_options.dnssd_data = calloc(1, sizeof(dnssd_t));
 	  if (g_options.dnssd_data == NULL)
 	    ERR_AND_EXIT("Unable to allocate memory for DNS-SD broadcast data.");
@@ -538,7 +537,7 @@ int main(int argc, char *argv[])
 		"  --no-fork\n"
 		"  -n           No-fork mode\n"
 		"  --no-broadcast\n"
-		"  -B           No-broadcast mode, do not DNS-SD-/DNS-SD-broadcast\n"
+		"  -B           No-broadcast mode, do not DNS-SD-broadcast\n"
 		"  --no-printer\n"
 		"  -N           No-printer mode, debug/developer mode which makes ippusbxd\n"
 		"               run without IPP-over-USB printer\n"
