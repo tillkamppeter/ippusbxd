@@ -43,6 +43,7 @@ struct options {
         int device;
 
         // Global variables
+        int sigterm;
         dnssd_t *dnssd_data;
 };
 

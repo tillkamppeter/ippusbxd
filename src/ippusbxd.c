@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <signal.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -36,6 +37,13 @@ struct service_thread_param {
         int thread_num;
 };
 
+static void
+sigterm_handler(int sig) {
+	/* Flag that we should stop and return... */
+	g_options.sigterm = 1;
+	NOTE("Caught signal %d, shutting down ...", sig);
+}
+
 static void *service_connection(void *arg_void)
 {
 	struct service_thread_param *arg =
@@ -45,14 +53,14 @@ static void *service_connection(void *arg_void)
 	// classify priority
 	struct usb_conn_t *usb = NULL;
 	int usb_failed = 0;
-	while (!arg->tcp->is_closed && usb_failed == 0) {
+	while (!arg->tcp->is_closed && usb_failed == 0 && !g_options.sigterm) {
 		struct http_message_t *server_msg = NULL;
 		struct http_message_t *client_msg = NULL;
 
 		// Client's request
 		client_msg = http_message_new();
 		if (client_msg == NULL) {
-			ERR("Failed to create client message");
+			ERR("Thread #%d: Failed to create client message", arg->thread_num);
 			break;
 		}
 		NOTE("Thread #%d: M %p: Client msg starting",
@@ -276,11 +284,40 @@ static void start_daemon()
 			   g_options.interface, real_port);
 	}
 
-	int i;
-	for (i = 0; ; i++) {
+	// Redirect SIGINT and SIGTERM so that we do a proper shutdown, unregistering
+	// the printer from DNS-SD
+#ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
+	sigset(SIGTERM, sigterm_handler);
+	sigset(SIGINT, sigterm_handler);
+	NOTE("Using signal handler SIGSET");
+#elif defined(HAVE_SIGACTION)
+	struct sigaction action; /* Actions for POSIX signals */
+	memset(&action, 0, sizeof(action));
+	sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGTERM);
+	action.sa_handler = sigterm_handler;
+	sigaction(SIGTERM, &action, NULL);
+	sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGINT);
+	action.sa_handler = sigterm_handler;
+	sigaction(SIGINT, &action, NULL);
+	NOTE("Using signal handler SIGACTION");
+#else
+	signal(SIGTERM, sigterm_handler);
+	signal(SIGINT, sigterm_handler);
+	NOTE("Using signal handler SIGNAL");
+#endif /* HAVE_SIGSET */
+
+	g_options.sigterm = 0;
+
+	// Main loop
+	int i = 0;
+	while (!g_options.sigterm) {
+		i ++;
 		struct service_thread_param *args = calloc(1, sizeof(*args));
 		if (args == NULL) {
-			ERR("Failed to alloc space for thread args");
+			ERR("Preparing thread #%d: Failed to alloc space for thread args",
+			    i);
 			goto cleanup_thread;
 		}
 
@@ -290,15 +327,18 @@ static void start_daemon()
 		// For each request/response round we use the socket (IPv4 or
 		// IPv6) which receives data first
 		args->tcp = tcp_conn_select(tcp_socket, tcp6_socket);
+		if (g_options.sigterm)
+			goto cleanup_thread;
 		if (args->tcp == NULL) {
-			ERR("Failed to open tcp connection");
+			ERR("Preparing thread #%d: Failed to open tcp connection", i);
 			goto cleanup_thread;
 		}
 
 		int status = pthread_create(&args->thread_handle, NULL,
 		                            &service_connection, args);
 		if (status) {
-			ERR("Failed to spawn thread, error %d", status);
+			ERR("Creating thread #%d: Failed to spawn thread, error %d",
+			    i, status);
 			goto cleanup_thread;
 		}
 

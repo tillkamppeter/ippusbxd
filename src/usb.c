@@ -435,12 +435,16 @@ void usb_close(struct usb_sock_t *usb)
 	}
 
 	libusb_close(usb->printer);
-	libusb_exit(usb->context);
-
-	sem_destroy(&usb->num_staled_lock);
-	free(usb->interfaces);
-	free(usb->interface_pool);
-	free(usb);
+	if (usb != NULL) {
+		if (usb->context != NULL)
+			libusb_exit(usb->context);
+		sem_destroy(&usb->num_staled_lock);
+		if (usb->interfaces != NULL)
+			free(usb->interfaces);
+		if (usb->interface_pool != NULL)
+			free(usb->interface_pool);
+		free(usb);
+	}
 	return;
 }
 
@@ -492,6 +496,8 @@ static void *usb_pump_events(void *user_data)
 	IGNORE(user_data);
 
 	for (;;) {
+		if (g_options.sigterm)
+			return NULL;
 		// NOTE: This is a blocking call so
 		// no need for sleep()
 		libusb_handle_events_completed(NULL, NULL);
