@@ -80,45 +80,64 @@ dnssd_client_cb(
 	       avahi_client_new(avahi_threaded_poll_get
 				(g_options.dnssd_data->DNSSDMaster),
 				AVAHI_CLIENT_NO_FAIL,
-				dnssd_client_cb, NULL, &error)) == NULL)
-	    ERR_AND_EXIT("Error: Unable to initialize DNS-SD client.");
-	} else
-	  ERR_AND_EXIT("Avahi server connection failure: %s",
-		       avahi_strerror(avahi_client_errno(c)));
+				dnssd_client_cb, NULL, &error)) == NULL) {
+	    ERR("Error: Unable to initialize DNS-SD client.");
+	    g_options.sigterm = 1;
+	  }
+	} else {
+	  ERR("Avahi server connection failure: %s",
+	      avahi_strerror(avahi_client_errno(c)));
+	  g_options.sigterm = 1;
+	}
 	break;
 
   }
 }
 
-void
+int
 dnssd_init()
 {
   int error;			/* Error code, if any */
 
   g_options.dnssd_data = calloc(1, sizeof(dnssd_t));
-  if (g_options.dnssd_data == NULL)
-    ERR_AND_EXIT("Unable to allocate memory for DNS-SD broadcast data.");
+  if (g_options.dnssd_data == NULL) {
+    ERR("Unable to allocate memory for DNS-SD broadcast data.");
+    goto fail;
+  }
 
-  if ((g_options.dnssd_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL)
-    ERR_AND_EXIT("Error: Unable to initialize DNS-SD.");
+  if ((g_options.dnssd_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL) {
+    ERR("Error: Unable to initialize DNS-SD.");
+    goto fail;
+  }
 
   if ((g_options.dnssd_data->DNSSDClient =
        avahi_client_new(avahi_threaded_poll_get(g_options.dnssd_data->DNSSDMaster),
 			AVAHI_CLIENT_NO_FAIL,
-			dnssd_client_cb, NULL, &error)) == NULL)
-    ERR_AND_EXIT("Error: Unable to initialize DNS-SD client.");
+			dnssd_client_cb, NULL, &error)) == NULL) {
+    ERR("Error: Unable to initialize DNS-SD client.");
+    goto fail;
+  }
 
   avahi_threaded_poll_start(g_options.dnssd_data->DNSSDMaster);
 
   NOTE("DNS-SD initialized.");
+
+  return 0;
+
+ fail:
+  dnssd_shutdown();
+
+  return -1;
 }
 
 void
 dnssd_shutdown() {
 
-  avahi_threaded_poll_lock(g_options.dnssd_data->DNSSDMaster);
-  dnssd_unregister();
-  avahi_threaded_poll_unlock(g_options.dnssd_data->DNSSDMaster);
+  if (g_options.dnssd_data->DNSSDMaster) {
+    avahi_threaded_poll_lock(g_options.dnssd_data->DNSSDMaster);
+    dnssd_unregister();
+    avahi_threaded_poll_unlock(g_options.dnssd_data->DNSSDMaster);
+  }
 
   if (g_options.dnssd_data->DNSSDClient) {
     avahi_client_free(g_options.dnssd_data->DNSSDClient);

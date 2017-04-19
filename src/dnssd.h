@@ -25,7 +25,7 @@ typedef struct dnssd_s {
   AvahiEntryGroup   *ipp_ref;
 } dnssd_t;
 
-void		dnssd_init();
+int		dnssd_init();
 void		dnssd_shutdown();
 int		dnssd_register();
 void		dnssd_unregister();

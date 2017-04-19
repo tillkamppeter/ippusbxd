@@ -214,6 +214,9 @@ static void start_daemon()
 	// Capture USB device if not in no-printer mode
 	struct usb_sock_t *usb_sock;
 
+	// Termination flag
+	g_options.sigterm = 0;
+
 	if (g_options.noprinter_mode == 0) {
 		usb_sock = usb_open();
 		if (usb_sock == NULL)
@@ -266,15 +269,6 @@ static void start_daemon()
 		exit(0);
 	}
 
-	// Register for unplug event
-	if (usb_can_callback(usb_sock))
-		usb_register_callback(usb_sock);
-
-	// DNS-SD-broadcast the printer on the local machine so
-	// that cups-browsed and ippfind will discover it
-	if (usb_sock && g_options.nobroadcast == 0)
-	  dnssd_init();
-
 	// Redirect SIGINT and SIGTERM so that we do a proper shutdown, unregistering
 	// the printer from DNS-SD
 #ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
@@ -299,7 +293,16 @@ static void start_daemon()
 	NOTE("Using signal handler SIGNAL");
 #endif /* HAVE_SIGSET */
 
-	g_options.sigterm = 0;
+	// Register for unplug event
+	if (usb_can_callback(usb_sock))
+		usb_register_callback(usb_sock);
+
+	// DNS-SD-broadcast the printer on the local machine so
+	// that cups-browsed and ippfind will discover it
+	if (usb_sock && g_options.nobroadcast == 0) {
+	  if (dnssd_init() == -1)
+	    goto cleanup_tcp;
+	}
 
 	// Main loop
 	int i = 0;
