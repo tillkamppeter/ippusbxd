@@ -116,7 +116,9 @@ dnssd_init()
 void
 dnssd_shutdown() {
 
+  avahi_threaded_poll_lock(g_options.dnssd_data->DNSSDMaster);
   dnssd_unregister();
+  avahi_threaded_poll_unlock(g_options.dnssd_data->DNSSDMaster);
 
   if (g_options.dnssd_data->DNSSDClient) {
     avahi_client_free(g_options.dnssd_data->DNSSDClient);
@@ -124,6 +126,7 @@ dnssd_shutdown() {
   }
 
   if (g_options.dnssd_data->DNSSDMaster) {
+    avahi_threaded_poll_stop(g_options.dnssd_data->DNSSDMaster);
     avahi_threaded_poll_free(g_options.dnssd_data->DNSSDMaster);
     g_options.dnssd_data->DNSSDMaster = NULL;
   }
