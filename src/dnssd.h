@@ -25,7 +25,7 @@ typedef struct dnssd_s {
   AvahiEntryGroup   *ipp_ref;
 } dnssd_t;
 
-void		dnssd_init(dnssd_t *dnssd_data);
-void		dnssd_shutdown(dnssd_t *dnssd_data);
-int		register_printer(dnssd_t *dnssd_data,
-				 char *device_id, char *interface, int port);
+void		dnssd_init();
+void		dnssd_shutdown();
+int		dnssd_register();
+void		dnssd_unregister();

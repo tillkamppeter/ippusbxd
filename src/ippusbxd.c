@@ -243,22 +243,21 @@ static void start_daemon()
 	if (tcp_socket == NULL && tcp6_socket == NULL)
 		goto cleanup_tcp;
 
-	uint16_t real_port;
 	if (tcp_socket)
-	  real_port = tcp_port_number_get(tcp_socket);
+	  g_options.real_port = tcp_port_number_get(tcp_socket);
 	else
-	  real_port = tcp_port_number_get(tcp6_socket);
+	  g_options.real_port = tcp_port_number_get(tcp6_socket);
 	if (desired_port != 0 && g_options.only_desired_port == 1 &&
-	    desired_port != real_port) {
+	    desired_port != g_options.real_port) {
 		ERR("Received port number did not match requested port number."
 		    " The requested port number may be too high.");
 		goto cleanup_tcp;
 	}
-	printf("%u|", real_port);
+	printf("%u|", g_options.real_port);
 	fflush(stdout);
 
 	NOTE("Port: %d, IPv4 %savailable, IPv6 %savailable",
-	     real_port, tcp_socket ? "" : "not ", tcp6_socket ? "" : "not ");
+	     g_options.real_port, tcp_socket ? "" : "not ", tcp6_socket ? "" : "not ");
 
 	// Lose connection to caller
 	uint16_t pid;
@@ -272,16 +271,9 @@ static void start_daemon()
 		usb_register_callback(usb_sock);
 
 	// DNS-SD-broadcast the printer on the local machine so
-	// that cups-browsed and ippfind will discover it (does not work
-	// with the loopback interface "lo")
-	if (usb_sock && g_options.nobroadcast == 0) {
-	  g_options.dnssd_data = calloc(1, sizeof(dnssd_t));
-	  if (g_options.dnssd_data == NULL)
-	    ERR_AND_EXIT("Unable to allocate memory for DNS-SD broadcast data.");
-	  dnssd_init(g_options.dnssd_data);
-	  register_printer(g_options.dnssd_data, usb_sock->device_id,
-			   g_options.interface, real_port);
-	}
+	// that cups-browsed and ippfind will discover it
+	if (usb_sock && g_options.nobroadcast == 0)
+	  dnssd_init();
 
 	// Redirect SIGINT and SIGTERM so that we do a proper shutdown, unregistering
 	// the printer from DNS-SD
@@ -354,7 +346,7 @@ static void start_daemon()
 
 cleanup_tcp:
 	if (g_options.dnssd_data != NULL)
-	  dnssd_shutdown(g_options.dnssd_data);
+	  dnssd_shutdown();
 
 	if (tcp_socket!= NULL)
 		tcp_close(tcp_socket);

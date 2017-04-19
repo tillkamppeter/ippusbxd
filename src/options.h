@@ -25,6 +25,7 @@ struct options {
 	// Runtime configuration
 	uint16_t desired_port;
 	int only_desired_port;
+	uint16_t real_port;
         char *interface;
 	enum log_target log_destination;
 
@@ -41,6 +42,7 @@ struct options {
 	int product_id;
         int bus;
         int device;
+        char *device_id;
 
         // Global variables
         int sigterm;

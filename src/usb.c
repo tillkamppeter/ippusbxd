@@ -332,8 +332,10 @@ found_device:
 				 selected_config, interf_num, alt_num);
 			    free(usb->device_id);
 			    usb->device_id = NULL;
+			    g_options.device_id = NULL;
 			  } else {
 			    NOTE("USB device ID: %s", usb->device_id);
+			    g_options.device_id = usb->device_id;
 			  }
 			}
 
@@ -483,7 +485,7 @@ static int LIBUSB_CALL usb_exit_on_unplug(libusb_context *context,
 
 		// Unregister DNS-SD for printer on Avahi
 		if (g_options.dnssd_data != NULL)
-			dnssd_shutdown(g_options.dnssd_data);
+			dnssd_shutdown();
 
 		exit(0);
 	}
