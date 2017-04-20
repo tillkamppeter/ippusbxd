@@ -17,36 +17,36 @@
 #include "dnssd.h"
 
 enum log_target {
-	LOGGING_STDERR,
-	LOGGING_SYSLOG
+  LOGGING_STDERR,
+  LOGGING_SYSLOG
 };
 
 struct options {
-	// Runtime configuration
-	uint16_t desired_port;
-	int only_desired_port;
-	uint16_t real_port;
-        char *interface;
-	enum log_target log_destination;
+  // Runtime configuration
+  uint16_t desired_port;
+  int only_desired_port;
+  uint16_t real_port;
+  char *interface;
+  enum log_target log_destination;
 
-	// Behavior
-	int help_mode;
-	int verbose_mode;
-	int nofork_mode;
-        int noprinter_mode;
-        int nobroadcast;
+  // Behavior
+  int help_mode;
+  int verbose_mode;
+  int nofork_mode;
+  int noprinter_mode;
+  int nobroadcast;
 
-	// Printer identity
-	unsigned char *serial_num;
-	int vendor_id;
-	int product_id;
-        int bus;
-        int device;
-        char *device_id;
+  // Printer identity
+  unsigned char *serial_num;
+  int vendor_id;
+  int product_id;
+  int bus;
+  int device;
+  char *device_id;
 
-        // Global variables
-        int terminate;
-        dnssd_t *dnssd_data;
+  // Global variables
+  int terminate;
+  dnssd_t *dnssd_data;
 };
 
 extern struct options g_options;

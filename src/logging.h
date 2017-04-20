@@ -19,10 +19,10 @@
 #define TID() (pthread_self())
 
 enum log_level {
-	LOGGING_ERROR,
-	LOGGING_WARNING,
-	LOGGING_NOTICE,
-	LOGGING_CONFORMANCE,
+  LOGGING_ERROR,
+  LOGGING_WARNING,
+  LOGGING_NOTICE,
+  LOGGING_CONFORMANCE,
 };
 
 #define PP_CAT(x, y) PP_CAT_2(x, y)

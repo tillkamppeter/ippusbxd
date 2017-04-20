@@ -29,14 +29,14 @@
 #define BUFFER_MAX (1 << 20)
 
 struct tcp_sock_t {
-	int sd;
-	struct sockaddr_in6 info;
-	socklen_t info_size;
+  int sd;
+  struct sockaddr_in6 info;
+  socklen_t info_size;
 };
 
 struct tcp_conn_t {
-	int sd;
-	int is_closed;
+  int sd;
+  int is_closed;
 };
 
 struct tcp_sock_t *tcp_open(uint16_t, char* interface);

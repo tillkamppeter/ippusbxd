@@ -17,41 +17,41 @@
 #include <sys/types.h>
 
 enum http_request_t {
-	HTTP_UNSET,
-	HTTP_UNKNOWN,
-	HTTP_CHUNKED,
-	HTTP_CONTENT_LENGTH,
-	HTTP_HEADER_ONLY
+  HTTP_UNSET,
+  HTTP_UNKNOWN,
+  HTTP_CHUNKED,
+  HTTP_CONTENT_LENGTH,
+  HTTP_HEADER_ONLY
 };
 
 struct http_message_t {
-	enum http_request_t type;
+  enum http_request_t type;
 
-	size_t spare_filled;
-	size_t spare_capacity;
-	uint8_t *spare_buffer;
+  size_t spare_filled;
+  size_t spare_capacity;
+  uint8_t *spare_buffer;
 
-	size_t unreceived_size;
-	uint8_t is_completed;
+  size_t unreceived_size;
+  uint8_t is_completed;
 
-	// Detected from child packets
-	size_t claimed_size;
-	size_t received_size;
+  // Detected from child packets
+  size_t claimed_size;
+  size_t received_size;
 };
 
 struct http_packet_t {
-	// Cache
-	size_t header_size;
+  // Cache
+  size_t header_size;
 
-	size_t filled_size;
-	size_t expected_size;
+  size_t filled_size;
+  size_t expected_size;
 
-	size_t buffer_capacity;
-	uint8_t *buffer;
+  size_t buffer_capacity;
+  uint8_t *buffer;
 
-	struct http_message_t *parent_message;
+  struct http_message_t *parent_message;
 
-	uint8_t is_completed;
+  uint8_t is_completed;
 };
 
 struct http_message_t *http_message_new(void);

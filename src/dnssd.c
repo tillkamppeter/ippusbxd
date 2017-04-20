@@ -27,10 +27,9 @@
  */
 
 static void
-dnssd_callback(
-    AvahiEntryGroup      *g,		/* I - Service */
-    AvahiEntryGroupState state,		/* I - Registration state */
-    void                 *context)	/* I - Printer */
+dnssd_callback(AvahiEntryGroup      *g,		/* I - Service */
+	       AvahiEntryGroupState state,	/* I - Registration state */
+	       void                 *context)	/* I - Printer */
 {
   (void)context;
 
@@ -65,10 +64,9 @@ dnssd_callback(
  */
 
 static void
-dnssd_client_cb(
-    AvahiClient      *c,		/* I - Client */
-    AvahiClientState state,		/* I - Current state */
-    void             *userdata)		/* I - User data (unused) */
+dnssd_client_cb(AvahiClient      *c,		/* I - Client */
+		AvahiClientState state,		/* I - Current state */
+		void             *userdata)	/* I - User data (unused) */
 {
   (void)userdata;
   int error;			/* Error code, if any */
@@ -76,49 +74,48 @@ dnssd_client_cb(
   if (!c)
     return;
 
-  switch (state)
-  {
-    default :
-        NOTE("Ignore Avahi state %d.", state);
-	break;
+  switch (state) {
+  default :
+    NOTE("Ignore Avahi state %d.", state);
+    break;
 
-    case AVAHI_CLIENT_CONNECTING:
-        NOTE("Waiting for Avahi server.");
-	break;
+  case AVAHI_CLIENT_CONNECTING:
+    NOTE("Waiting for Avahi server.");
+    break;
 
-    case AVAHI_CLIENT_S_RUNNING:
-        NOTE("Avahi server connection got available, registering printer.");
-	dnssd_register(c);
-	break;
+  case AVAHI_CLIENT_S_RUNNING:
+    NOTE("Avahi server connection got available, registering printer.");
+    dnssd_register(c);
+    break;
 
-    case AVAHI_CLIENT_S_REGISTERING:
-    case AVAHI_CLIENT_S_COLLISION:
-        NOTE("Dropping printer registration because of possible host name change.");
-	if (g_options.dnssd_data->ipp_ref)
-	  avahi_entry_group_reset(g_options.dnssd_data->ipp_ref);
-	break;
+  case AVAHI_CLIENT_S_REGISTERING:
+  case AVAHI_CLIENT_S_COLLISION:
+    NOTE("Dropping printer registration because of possible host name change.");
+    if (g_options.dnssd_data->ipp_ref)
+      avahi_entry_group_reset(g_options.dnssd_data->ipp_ref);
+    break;
 
-    case AVAHI_CLIENT_FAILURE:
-        if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED) {
-	  NOTE("Avahi server disappeared, unregistering printer");
-	  dnssd_unregister();
-	  /* Renewing client */
-	  if (g_options.dnssd_data->DNSSDClient)
-	    avahi_client_free(g_options.dnssd_data->DNSSDClient);
-	  if ((g_options.dnssd_data->DNSSDClient =
-	       avahi_client_new(avahi_threaded_poll_get
-				(g_options.dnssd_data->DNSSDMaster),
-				AVAHI_CLIENT_NO_FAIL,
-				dnssd_client_cb, NULL, &error)) == NULL) {
-	    ERR("Error: Unable to initialize DNS-SD client.");
-	    g_options.terminate = 1;
-	  }
-	} else {
-	  ERR("Avahi server connection failure: %s",
-	      avahi_strerror(avahi_client_errno(c)));
-	  g_options.terminate = 1;
-	}
-	break;
+  case AVAHI_CLIENT_FAILURE:
+    if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED) {
+      NOTE("Avahi server disappeared, unregistering printer");
+      dnssd_unregister();
+      /* Renewing client */
+      if (g_options.dnssd_data->DNSSDClient)
+	avahi_client_free(g_options.dnssd_data->DNSSDClient);
+      if ((g_options.dnssd_data->DNSSDClient =
+	   avahi_client_new(avahi_threaded_poll_get
+			    (g_options.dnssd_data->DNSSDMaster),
+			    AVAHI_CLIENT_NO_FAIL,
+			    dnssd_client_cb, NULL, &error)) == NULL) {
+	ERR("Error: Unable to initialize DNS-SD client.");
+	g_options.terminate = 1;
+      }
+    } else {
+      ERR("Avahi server connection failure: %s",
+	  avahi_strerror(avahi_client_errno(c)));
+      g_options.terminate = 1;
+    }
+    break;
 
   }
 }
