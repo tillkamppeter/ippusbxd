@@ -498,7 +498,7 @@ static void *usb_pump_events(void *user_data)
 	IGNORE(user_data);
 
 	for (;;) {
-		if (g_options.sigterm)
+		if (g_options.terminate)
 			return NULL;
 		// NOTE: This is a blocking call so
 		// no need for sleep()

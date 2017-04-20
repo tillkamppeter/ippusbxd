@@ -40,7 +40,7 @@ struct service_thread_param {
 static void
 sigterm_handler(int sig) {
 	/* Flag that we should stop and return... */
-	g_options.sigterm = 1;
+	g_options.terminate = 1;
 	NOTE("Caught signal %d, shutting down ...", sig);
 }
 
@@ -53,7 +53,7 @@ static void *service_connection(void *arg_void)
 	// classify priority
 	struct usb_conn_t *usb = NULL;
 	int usb_failed = 0;
-	while (!arg->tcp->is_closed && usb_failed == 0 && !g_options.sigterm) {
+	while (!arg->tcp->is_closed && usb_failed == 0 && !g_options.terminate) {
 		struct http_message_t *server_msg = NULL;
 		struct http_message_t *client_msg = NULL;
 
@@ -215,7 +215,7 @@ static void start_daemon()
 	struct usb_sock_t *usb_sock;
 
 	// Termination flag
-	g_options.sigterm = 0;
+	g_options.terminate = 0;
 
 	if (g_options.noprinter_mode == 0) {
 		usb_sock = usb_open();
@@ -306,7 +306,7 @@ static void start_daemon()
 
 	// Main loop
 	int i = 0;
-	while (!g_options.sigterm) {
+	while (!g_options.terminate) {
 		i ++;
 		struct service_thread_param *args = calloc(1, sizeof(*args));
 		if (args == NULL) {
@@ -321,7 +321,7 @@ static void start_daemon()
 		// For each request/response round we use the socket (IPv4 or
 		// IPv6) which receives data first
 		args->tcp = tcp_conn_select(tcp_socket, tcp6_socket);
-		if (g_options.sigterm)
+		if (g_options.terminate)
 			goto cleanup_thread;
 		if (args->tcp == NULL) {
 			ERR("Preparing thread #%d: Failed to open tcp connection", i);

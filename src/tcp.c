@@ -317,7 +317,7 @@ struct tcp_conn_t *tcp_conn_select(struct tcp_sock_t *sock,
 	}
 	nfds += 1;
 	retval = select(nfds, &rfds, NULL, NULL, NULL);
-	if (g_options.sigterm)
+	if (g_options.terminate)
 		goto error;
 	if (retval < 1) {
 		ERR("Failed to open tcp connection");

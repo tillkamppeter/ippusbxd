@@ -45,7 +45,7 @@ struct options {
         char *device_id;
 
         // Global variables
-        int sigterm;
+        int terminate;
         dnssd_t *dnssd_data;
 };
 

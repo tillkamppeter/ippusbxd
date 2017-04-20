@@ -82,12 +82,12 @@ dnssd_client_cb(
 				AVAHI_CLIENT_NO_FAIL,
 				dnssd_client_cb, NULL, &error)) == NULL) {
 	    ERR("Error: Unable to initialize DNS-SD client.");
-	    g_options.sigterm = 1;
+	    g_options.terminate = 1;
 	  }
 	} else {
 	  ERR("Avahi server connection failure: %s",
 	      avahi_strerror(avahi_client_errno(c)));
-	  g_options.sigterm = 1;
+	  g_options.terminate = 1;
 	}
 	break;
 
