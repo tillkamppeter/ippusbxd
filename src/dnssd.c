@@ -28,13 +28,33 @@
 
 static void
 dnssd_callback(
-    AvahiEntryGroup      *srv,		/* I - Service */
+    AvahiEntryGroup      *g,		/* I - Service */
     AvahiEntryGroupState state,		/* I - Registration state */
     void                 *context)	/* I - Printer */
 {
-  (void)srv;
-  (void)state;
   (void)context;
+
+  if (g == NULL || (g_options.dnssd_data->ipp_ref != NULL &&
+		    g_options.dnssd_data->ipp_ref != g))
+    return;
+
+  switch (state) {
+  case AVAHI_ENTRY_GROUP_ESTABLISHED :
+    /* The entry group has been established successfully */
+    NOTE("Service entry for the printer successfully established.");
+    break;
+  case AVAHI_ENTRY_GROUP_COLLISION :
+    ERR("DNS-SD service name for this printer already exists");
+  case AVAHI_ENTRY_GROUP_FAILURE :
+    ERR("Entry group failure: %s\n",
+	avahi_strerror(avahi_client_errno(avahi_entry_group_get_client(g))));
+    g_options.terminate = 1;
+    break;
+  case AVAHI_ENTRY_GROUP_UNCOMMITED:
+  case AVAHI_ENTRY_GROUP_REGISTERING:
+  default:
+    break;
+  }
 }
 
 
@@ -62,11 +82,20 @@ dnssd_client_cb(
         NOTE("Ignore Avahi state %d.", state);
 	break;
 
-    case AVAHI_CLIENT_S_REGISTERING:
+    case AVAHI_CLIENT_CONNECTING:
+        NOTE("Waiting for Avahi server.");
+	break;
+
     case AVAHI_CLIENT_S_RUNNING:
-    case AVAHI_CLIENT_S_COLLISION:
         NOTE("Avahi server connection got available, registering printer.");
 	dnssd_register(c);
+	break;
+
+    case AVAHI_CLIENT_S_REGISTERING:
+    case AVAHI_CLIENT_S_COLLISION:
+        NOTE("Dropping printer registration because of possible host name change.");
+	if (g_options.dnssd_data->ipp_ref)
+	  avahi_entry_group_reset(g_options.dnssd_data->ipp_ref);
 	break;
 
     case AVAHI_CLIENT_FAILURE:
@@ -104,6 +133,9 @@ dnssd_init()
     ERR("Unable to allocate memory for DNS-SD broadcast data.");
     goto fail;
   }
+  g_options.dnssd_data->DNSSDMaster = NULL;
+  g_options.dnssd_data->DNSSDClient = NULL;
+  g_options.dnssd_data->ipp_ref = NULL;
 
   if ((g_options.dnssd_data->DNSSDMaster = avahi_threaded_poll_new()) == NULL) {
     ERR("Error: Unable to initialize DNS-SD.");
@@ -279,9 +311,17 @@ dnssd_register(AvahiClient *c)
   NOTE("Registering printer %s on interface %s for DNS-SD broadcasting ...",
        dnssd_name, g_options.interface);
 
-  g_options.dnssd_data->ipp_ref =
-    avahi_entry_group_new((c ? c : g_options.dnssd_data->DNSSDClient),
-			  dnssd_callback, NULL);
+  if (g_options.dnssd_data->ipp_ref == NULL)
+    g_options.dnssd_data->ipp_ref =
+      avahi_entry_group_new((c ? c : g_options.dnssd_data->DNSSDClient),
+			    dnssd_callback, NULL);
+
+  if (g_options.dnssd_data->ipp_ref == NULL) {
+    ERR("Could not establish Avahi entry group");
+    avahi_string_list_free(ipp_txt);
+    return -1;
+  }
+
   error =
     avahi_entry_group_add_service_strlst(g_options.dnssd_data->ipp_ref,
 					 (g_options.interface ?
