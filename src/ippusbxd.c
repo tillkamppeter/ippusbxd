@@ -201,7 +201,8 @@ static void *service_connection(void *arg_void)
       message_free(server_msg);
   }
 
-  NOTE("Thread #%d: Closing", arg->thread_num);
+  NOTE("Thread #%d: Closing, %s", arg->thread_num,
+       g_options.terminate ? "shutdown requested" : "communication thread terminated");
   tcp_conn_close(arg->tcp);
   free(arg);
   return NULL;

@@ -431,6 +431,9 @@ void usb_close(struct usb_sock_t *usb)
     sem_destroy(&usb->interfaces[i].lock);
   }
 
+  NOTE("Resetting printer ...");
+  libusb_reset_device(usb->printer);
+  NOTE("Reset completed.");
   libusb_close(usb->printer);
   if (usb != NULL) {
     if (usb->context != NULL)
@@ -441,6 +444,7 @@ void usb_close(struct usb_sock_t *usb)
     if (usb->interface_pool != NULL)
       free(usb->interface_pool);
     free(usb);
+    usb = NULL;
   }
   return;
 }
@@ -648,7 +652,10 @@ struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
       default:
 	break;
       }
-    } while (status != 0);
+    } while (status != 0 && !g_options.terminate);
+
+    if (g_options.terminate)
+      goto acquire_error;
 
     // Select the IPP-USB alt setting of the interface
     libusb_set_interface_alt_setting(usb->printer,
@@ -682,7 +689,7 @@ void usb_conn_release(struct usb_conn_t *conn)
       status = libusb_release_interface(usb->printer,
 					conn->interface->libusb_interface_index);
       if (status) NOTE("Failed to release interface %d, retrying", conn->interface_index);
-    } while (status != 0);
+    } while (status != 0 && !g_options.terminate);
 
     // Return usb interface to pool
     usb->num_taken--;
