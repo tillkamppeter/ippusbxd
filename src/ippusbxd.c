@@ -176,7 +176,7 @@ static void *service_connection(void *arg_void)
     NOTE("Thread #%d: M %p: Client msg starting",
 	 thread_num, client_msg);
 
-    while (!client_msg->is_completed) {
+    while (!client_msg->is_completed && !g_options.terminate) {
       struct http_packet_t *pkt;
       pkt = tcp_packet_get(arg->tcp, client_msg);
       if (pkt == NULL) {
@@ -203,6 +203,9 @@ static void *service_connection(void *arg_void)
 	     thread_num, client_msg,
 	     usb->interface_index);
       }
+
+      if (g_options.terminate)
+	goto cleanup_subconn;
 
       NOTE("Thread #%d: M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%s===",
 	   thread_num, client_msg, pkt,
@@ -234,6 +237,10 @@ static void *service_connection(void *arg_void)
     message_free(client_msg);
     client_msg = NULL;
 
+    if (g_options.terminate)
+      goto cleanup_subconn;
+
+
     // Server's response
     server_msg = http_message_new();
     if (server_msg == NULL) {
@@ -248,7 +255,7 @@ static void *service_connection(void *arg_void)
     else
       NOTE("Thread #%d: M %p: Server msg starting",
 	   thread_num, server_msg);
-    while (!server_msg->is_completed) {
+    while (!server_msg->is_completed && !g_options.terminate) {
       struct http_packet_t *pkt;
       if (arg->usb_sock != NULL) {
 	pkt = usb_conn_packet_get(usb, server_msg);
@@ -270,6 +277,9 @@ static void *service_connection(void *arg_void)
 	server_msg->is_completed = 1;
 	arg->tcp->is_closed = 1;
       }
+
+      if (g_options.terminate)
+	goto cleanup_subconn;
 
       NOTE("Thread #%d: M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
 	   thread_num, server_msg, pkt, pkt->filled_size,
