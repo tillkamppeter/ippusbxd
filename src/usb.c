@@ -590,8 +590,11 @@ struct usb_conn_t *usb_conn_acquire(struct usb_sock_t *usb)
 
   if (usb->num_avail <= 0) {
     NOTE("All USB interfaces busy, waiting ...");
-    for (i = 0; i < 30 && usb->num_avail <= 0; i ++)
+    for (i = 0; i < 30 && usb->num_avail <= 0; i ++) {
+      if (g_options.terminate)
+	return NULL;
       usleep(100000);
+    }
     if (usb->num_avail <= 0) {
       ERR("Timed out waiting for a free USB interface");
       return NULL;
@@ -712,7 +715,7 @@ int usb_conn_packet_send(struct usb_conn_t *conn, struct http_packet_t *pkt)
   int num_timeouts = 0;
   size_t sent = 0;
   size_t pending = pkt->filled_size;
-  while (pending > 0) {
+  while (pending > 0 && !g_options.terminate) {
     int to_send = (int)pending;
 
     NOTE("P %p: USB: want to send %d bytes", pkt, to_send);
@@ -778,7 +781,7 @@ struct http_packet_t *usb_conn_packet_get(struct usb_conn_t *conn, struct http_m
     return pkt;
 
   uint64_t times_staled = 0;
-  while (read_size_ulong > 0 && !msg->is_completed) {
+  while (read_size_ulong > 0 && !msg->is_completed && !g_options.terminate) {
     if (read_size_ulong >= INT_MAX)
       goto cleanup;
     int read_size = (int)read_size_ulong;

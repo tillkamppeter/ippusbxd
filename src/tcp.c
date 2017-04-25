@@ -225,7 +225,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
   setsockopt(tcp->sd, SOL_SOCKET, SO_RCVTIMEO,
 	     (char *)&tv, sizeof(struct timeval));
 
-  while (want_size != 0 && !msg->is_completed) {
+  while (want_size != 0 && !msg->is_completed && !g_options.terminate) {
     NOTE("TCP: Getting %d bytes", want_size);
     uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
     ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
@@ -265,7 +265,7 @@ int tcp_packet_send(struct tcp_conn_t *conn, struct http_packet_t *pkt)
 {
   size_t remaining = pkt->filled_size;
   size_t total = 0;
-  while (remaining > 0) {
+  while (remaining > 0 && !g_options.terminate) {
     ssize_t sent = send(conn->sd, pkt->buffer + total,
 			remaining, MSG_NOSIGNAL);
     if (sent < 0) {
