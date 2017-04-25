@@ -37,19 +37,129 @@ struct service_thread_param {
   int thread_num;
 };
 
-static void
-sigterm_handler(int sig) {
+static pthread_mutex_t thread_register_mutex;
+static struct service_thread_param **service_threads = NULL;
+static int num_service_threads = 0;
+
+static void sigterm_handler(int sig)
+{
   /* Flag that we should stop and return... */
   g_options.terminate = 1;
   NOTE("Caught signal %d, shutting down ...", sig);
+}
+
+static void list_service_threads(int num_service_threads,
+				 struct service_thread_param **service_threads)
+{
+  int i;
+  char *p;
+  char buf[10240];
+
+  snprintf(buf, sizeof(buf), "Threads currently running: ");
+  p = buf + strlen(buf);
+  if (num_service_threads == 0) {
+    snprintf(p, sizeof(buf) - strlen(buf), "None");
+  } else {
+    for (i = 0; i < num_service_threads; i ++) {
+      snprintf(p, sizeof(buf) - strlen(buf), "#%d, ",
+	       service_threads[i]->thread_num);
+      p = buf + strlen(buf);
+    }
+    p -= 2;
+    *p = '\0';
+  }
+  buf[sizeof(buf) - 1] = '\0';
+  NOTE("%s", buf);
+}
+
+static int register_service_thread(int *num_service_threads,
+				   struct service_thread_param ***service_threads,
+				   struct service_thread_param *new_thread)
+{
+  NOTE("Registering thread #%d", new_thread->thread_num);
+  (*num_service_threads) ++;
+  *service_threads = realloc(*service_threads,
+			     *num_service_threads * sizeof(void*));
+  if (*service_threads == NULL) {
+    ERR("Registering thread #%d: Failed to alloc space for thread registration list",
+	new_thread->thread_num);
+    return -1;
+  }
+  (*service_threads)[*num_service_threads - 1] =
+    calloc(1, sizeof(struct service_thread_param));
+  if ((*service_threads)[*num_service_threads - 1] == NULL) {
+    ERR("Registering thread #%d: Failed to alloc space for thread registration record",
+	new_thread->thread_num);
+    return -1;
+  }
+  (*service_threads)[*num_service_threads - 1]->thread_num = new_thread->thread_num;
+  (*service_threads)[*num_service_threads - 1]->thread_handle =
+    new_thread->thread_handle;
+  (*service_threads)[*num_service_threads - 1]->tcp = NULL;
+  (*service_threads)[*num_service_threads - 1]->usb_sock = NULL;
+  return 0;
+}
+
+static int unregister_service_thread(int *num_service_threads,
+				     struct service_thread_param ***service_threads,
+				     int thread_num)
+{
+  int i;
+
+  NOTE("Unregistering thread #%d", thread_num);
+  for (i = 0; i < *num_service_threads; i ++)
+    if ((*service_threads)[i]->thread_num == thread_num)
+      break;
+  if (i >= *num_service_threads) {
+    ERR("Unregistering thread #%d: Cannot unregister, not found", thread_num);
+    return -1;
+  }
+  free((*service_threads)[i]);
+  (*num_service_threads) --;
+  for (; i < *num_service_threads; i ++)
+    (*service_threads)[i] = (*service_threads)[i + 1];
+  *service_threads = realloc(*service_threads,
+			     *num_service_threads * sizeof(void*));
+  if (*num_service_threads == 0)
+    *service_threads = NULL;
+  else if (*service_threads == NULL) {
+    ERR("Unregistering thread #%d: Failed to alloc space for thread registration list",
+	thread_num);
+    return -1;
+  }
+  return 0;
+}
+
+static void
+cleanup_handler(void *arg_void)
+{
+  int thread_num = *((int *)(arg_void));
+  NOTE("Thread #%d: Called clean-up handler", thread_num);
+  pthread_mutex_lock(&thread_register_mutex);
+  unregister_service_thread(&num_service_threads, &service_threads, thread_num);
+  list_service_threads(num_service_threads, service_threads);
+  pthread_mutex_unlock(&thread_register_mutex);
 }
 
 static void *service_connection(void *arg_void)
 {
   struct service_thread_param *arg =
     (struct service_thread_param *)arg_void;
+  int thread_num = arg->thread_num;
 
-  NOTE("Thread #%d: Starting", arg->thread_num);
+  NOTE("Thread #%d: Starting", thread_num);
+
+  // Detach this thread so that the main thread does not need to join this thread
+  // after termination for clean-up
+  pthread_detach(pthread_self());
+
+  // Register clean-up handler
+  pthread_cleanup_push(cleanup_handler, &thread_num);
+
+  // Allow immediate cancelling of this thread
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
   // classify priority
   struct usb_conn_t *usb = NULL;
   int usb_failed = 0;
@@ -60,42 +170,42 @@ static void *service_connection(void *arg_void)
     // Client's request
     client_msg = http_message_new();
     if (client_msg == NULL) {
-      ERR("Thread #%d: Failed to create client message", arg->thread_num);
+      ERR("Thread #%d: Failed to create client message", thread_num);
       break;
     }
     NOTE("Thread #%d: M %p: Client msg starting",
-	 arg->thread_num, client_msg);
+	 thread_num, client_msg);
 
     while (!client_msg->is_completed) {
       struct http_packet_t *pkt;
       pkt = tcp_packet_get(arg->tcp, client_msg);
       if (pkt == NULL) {
 	if (arg->tcp->is_closed) {
-	  NOTE("Thread #%d: M %p: Client closed connection\n",
-	       arg->thread_num, client_msg);
+	  NOTE("Thread #%d: M %p: Client closed connection",
+	       thread_num, client_msg);
 	  goto cleanup_subconn;
 	}
 	ERR("Thread #%d: M %p: Got null packet from tcp",
-	    arg->thread_num, client_msg);
+	    thread_num, client_msg);
 	goto cleanup_subconn;
       }
       if (usb == NULL && arg->usb_sock != NULL) {
 	usb = usb_conn_acquire(arg->usb_sock);
 	if (usb == NULL) {
 	  ERR("Thread #%d: M %p: Failed to acquire usb interface",
-	      arg->thread_num, client_msg);
+	      thread_num, client_msg);
 	  packet_free(pkt);
 	  usb_failed = 1;
 	  goto cleanup_subconn;
 	}
 	usb_failed = 0;
 	NOTE("Thread #%d: M %p: Interface #%d: acquired usb conn",
-	     arg->thread_num, client_msg,
+	     thread_num, client_msg,
 	     usb->interface_index);
       }
 
       NOTE("Thread #%d: M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%s===",
-	   arg->thread_num, client_msg, pkt,
+	   thread_num, client_msg, pkt,
 	   pkt->filled_size,
 	   hexdump(pkt->buffer, (int)pkt->filled_size));
       // In no-printer mode we simply ignore passing the
@@ -103,24 +213,24 @@ static void *service_connection(void *arg_void)
       if (arg->usb_sock != NULL) {
 	if (usb_conn_packet_send(usb, pkt) != 0) {
 	  ERR("Thread #%d: M %p P %p: Interface #%d: Unable to send client package via USB",
-	      arg->thread_num,
+	      thread_num,
 	      client_msg, pkt, usb->interface_index);
 	  packet_free(pkt);
 	  goto cleanup_subconn;
 	}
 	NOTE("Thread #%d: M %p P %p: Interface #%d: Client pkt done",
-	     arg->thread_num,
+	     thread_num,
 	     client_msg, pkt, usb->interface_index);
       }
       packet_free(pkt);
     }
     if (usb != NULL)
-      NOTE("Thread #%d: M %p: Interface #%d: Client msg completed\n",
-	   arg->thread_num, client_msg,
+      NOTE("Thread #%d: M %p: Interface #%d: Client msg completed",
+	   thread_num, client_msg,
 	   usb->interface_index);
     else
-      NOTE("Thread #%d: M %p: Client msg completed\n",
-	   arg->thread_num, client_msg);
+      NOTE("Thread #%d: M %p: Client msg completed",
+	   thread_num, client_msg);
     message_free(client_msg);
     client_msg = NULL;
 
@@ -128,16 +238,16 @@ static void *service_connection(void *arg_void)
     server_msg = http_message_new();
     if (server_msg == NULL) {
       ERR("Thread #%d: Failed to create server message",
-	  arg->thread_num);
+	  thread_num);
       goto cleanup_subconn;
     }
     if (usb != NULL)
       NOTE("Thread #%d: M %p: Interface #%d: Server msg starting",
-	   arg->thread_num, server_msg,
+	   thread_num, server_msg,
 	   usb->interface_index);
     else
       NOTE("Thread #%d: M %p: Server msg starting",
-	   arg->thread_num, server_msg);
+	   thread_num, server_msg);
     while (!server_msg->is_completed) {
       struct http_packet_t *pkt;
       if (arg->usb_sock != NULL) {
@@ -162,36 +272,36 @@ static void *service_connection(void *arg_void)
       }
 
       NOTE("Thread #%d: M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
-	   arg->thread_num, server_msg, pkt, pkt->filled_size,
+	   thread_num, server_msg, pkt, pkt->filled_size,
 	   hexdump(pkt->buffer, (int)pkt->filled_size));
       if (tcp_packet_send(arg->tcp, pkt) != 0) {
 	ERR("Thread #%d: M %p P %p: Unable to send client package via TCP",
-	    arg->thread_num,
+	    thread_num,
 	    client_msg, pkt);
 	packet_free(pkt);
 	goto cleanup_subconn;
       }
       if (usb != NULL)
 	NOTE("Thread #%d: M %p P %p: Interface #%d: Server pkt done",
-	     arg->thread_num, server_msg, pkt,
+	     thread_num, server_msg, pkt,
 	     usb->interface_index);
       else
 	NOTE("Thread #%d: M %p P %p: Server pkt done",
-	     arg->thread_num, server_msg, pkt);
+	     thread_num, server_msg, pkt);
       packet_free(pkt);
     }
     if (usb != NULL)
-      NOTE("Thread #%d: M %p: Interface #%d: Server msg completed\n",
-	   arg->thread_num, server_msg,
+      NOTE("Thread #%d: M %p: Interface #%d: Server msg completed",
+	   thread_num, server_msg,
 	   usb->interface_index);
     else
-      NOTE("Thread #%d: M %p: Server msg completed\n",
-	   arg->thread_num, server_msg);
+      NOTE("Thread #%d: M %p: Server msg completed",
+	   thread_num, server_msg);
 
   cleanup_subconn:
     if (usb != NULL && (arg->tcp->is_closed || usb_failed == 1)) {
       NOTE("Thread #%d: M %p: Interface #%d: releasing usb conn",
-	   arg->thread_num, server_msg, usb->interface_index);
+	   thread_num, server_msg, usb->interface_index);
       usb_conn_release(usb);
       usb = NULL;
     }
@@ -201,11 +311,15 @@ static void *service_connection(void *arg_void)
       message_free(server_msg);
   }
 
-  NOTE("Thread #%d: Closing, %s", arg->thread_num,
+  NOTE("Thread #%d: Closing, %s", thread_num,
        g_options.terminate ? "shutdown requested" : "communication thread terminated");
   tcp_conn_close(arg->tcp);
   free(arg);
-  return NULL;
+
+  // Execute clean-up handler
+  pthread_cleanup_pop(1);
+
+  pthread_exit(NULL);
 }
 
 static void start_daemon()
@@ -305,6 +419,7 @@ static void start_daemon()
 
   // Main loop
   int i = 0;
+  pthread_mutex_init(&thread_register_mutex, NULL);
   while (!g_options.terminate) {
     i ++;
     struct service_thread_param *args = calloc(1, sizeof(*args));
@@ -327,6 +442,10 @@ static void start_daemon()
       goto cleanup_thread;
     }
 
+    pthread_mutex_lock(&thread_register_mutex);
+    register_service_thread(&num_service_threads, &service_threads, args);
+    list_service_threads(num_service_threads, service_threads);
+    pthread_mutex_unlock(&thread_register_mutex);
     int status = pthread_create(&args->thread_handle, NULL,
 				&service_connection, args);
     if (status) {
@@ -347,14 +466,30 @@ static void start_daemon()
   }
 
  cleanup_tcp:
+  // Stop DNS-SD advertising of the printer
   if (g_options.dnssd_data != NULL)
     dnssd_shutdown();
 
+  // Cancel communication threads which did not terminate by themselves when
+  // stopping ippusbxd, so that no USB communication with the printer can
+  // happen after the final reset
+  while (num_service_threads) {
+    NOTE("Thread #%d did not terminate, canceling it now ...",
+	 service_threads[0]->thread_num);
+    i = num_service_threads;
+    pthread_cancel(service_threads[0]->thread_handle);
+    while (i == num_service_threads)
+      usleep(1000000);
+  }
+
+  // TCP clean-up
   if (tcp_socket!= NULL)
     tcp_close(tcp_socket);
   if (tcp6_socket!= NULL)
     tcp_close(tcp6_socket);
  cleanup_usb:
+
+  // USB clean-up and final reset of the printer
   if (usb_sock != NULL)
     usb_close(usb_sock);
   return;
