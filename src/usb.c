@@ -481,6 +481,13 @@ static int LIBUSB_CALL usb_exit_on_unplug(libusb_context *context,
   libusb_get_device_descriptor(device, &desc);
 
   if (is_our_device(device, desc)) {
+    // We prefer an immediate shutdown with only DNS-SD and TCP
+    // clean-up here as by a regular sgutdown request via termination
+    // flag g_options.terminate there can still happen USB
+    // communication attempts with long timeouts, making ippusbxd get
+    // stuck for a significant time.  This way we immediately stop the
+    // DNS-SD advertising and release the host/port binding.
+
     // Unregister DNS-SD for printer on Avahi
     if (g_options.dnssd_data != NULL)
       dnssd_shutdown();

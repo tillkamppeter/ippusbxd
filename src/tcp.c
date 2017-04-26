@@ -50,6 +50,10 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
     ERR("IPv4 socket open failed");
     goto error;
   }
+  // Set SO_REUSEADDR option to allow for a clean host/port unbinding even with
+  // pending requests on shutdown of ippusbxd. Otherwise the port will stay
+  // unavailable for a certain kernel-defined timeout. See also
+  // http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c
   int true = 1;
   if (setsockopt(this->sd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
     ERR("IPv4 setting socket options failed");
@@ -124,12 +128,15 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
     ERR("Ipv6 socket open failed");
     goto error;
   }
+  // Set SO_REUSEADDR option to allow for a clean host/port unbinding even with
+  // pending requests on shutdown of ippusbxd. Otherwise the port will stay
+  // unavailable for a certain kernel-defined timeout. See also
+  // http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c
   int true = 1;
   if (setsockopt(this->sd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
     ERR("IPv6 setting socket options failed");
     goto error;
   }
-
 
   // Find the IP address for the selected interface
   struct ifaddrs *ifaddr, *ifa;
@@ -357,7 +364,12 @@ struct tcp_conn_t *tcp_conn_select(struct tcp_sock_t *sock,
 
 void tcp_conn_close(struct tcp_conn_t *conn)
 {
+  // Unbind host/port cleanly even with pending requests. Otherwise
+  // the port will stay unavailable for a certain kernel-defined
+  // timeout. See also
+  // http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c
   shutdown(conn->sd, SHUT_RDWR);
+
   close(conn->sd);
   free(conn);
 }
