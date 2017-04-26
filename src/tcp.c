@@ -50,6 +50,11 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
     ERR("IPv4 socket open failed");
     goto error;
   }
+  int true = 1;
+  if (setsockopt(this->sd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
+    ERR("IPv4 setting socket options failed");
+    goto error;
+  }
 
   // Find the IP address for the selected interface
   struct ifaddrs *ifaddr, *ifa;
@@ -119,6 +124,12 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
     ERR("Ipv6 socket open failed");
     goto error;
   }
+  int true = 1;
+  if (setsockopt(this->sd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
+    ERR("IPv6 setting socket options failed");
+    goto error;
+  }
+
 
   // Find the IP address for the selected interface
   struct ifaddrs *ifaddr, *ifa;
@@ -346,6 +357,7 @@ struct tcp_conn_t *tcp_conn_select(struct tcp_sock_t *sock,
 
 void tcp_conn_close(struct tcp_conn_t *conn)
 {
+  shutdown(conn->sd, SHUT_RDWR);
   close(conn->sd);
   free(conn);
 }
