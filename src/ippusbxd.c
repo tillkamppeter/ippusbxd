@@ -85,18 +85,7 @@ static int register_service_thread(int *num_service_threads,
 	new_thread->thread_num);
     return -1;
   }
-  (*service_threads)[*num_service_threads - 1] =
-    calloc(1, sizeof(struct service_thread_param));
-  if ((*service_threads)[*num_service_threads - 1] == NULL) {
-    ERR("Registering thread #%d: Failed to alloc space for thread registration record",
-	new_thread->thread_num);
-    return -1;
-  }
-  (*service_threads)[*num_service_threads - 1]->thread_num = new_thread->thread_num;
-  (*service_threads)[*num_service_threads - 1]->thread_handle =
-    new_thread->thread_handle;
-  (*service_threads)[*num_service_threads - 1]->tcp = NULL;
-  (*service_threads)[*num_service_threads - 1]->usb_sock = NULL;
+  (*service_threads)[*num_service_threads - 1] = new_thread;
   return 0;
 }
 
@@ -114,7 +103,6 @@ static int unregister_service_thread(int *num_service_threads,
     ERR("Unregistering thread #%d: Cannot unregister, not found", thread_num);
     return -1;
   }
-  free((*service_threads)[i]);
   (*num_service_threads) --;
   for (; i < *num_service_threads; i ++)
     (*service_threads)[i] = (*service_threads)[i + 1];
