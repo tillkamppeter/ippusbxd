@@ -461,6 +461,10 @@ static void start_daemon()
     if (status) {
       ERR("Creating thread #%d: Failed to spawn thread, error %d",
 	  i, status);
+      pthread_mutex_lock(&thread_register_mutex);
+      unregister_service_thread(&num_service_threads, &service_threads, i);
+      list_service_threads(num_service_threads, service_threads);
+      pthread_mutex_unlock(&thread_register_mutex);
       goto cleanup_thread;
     }
 
