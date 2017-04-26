@@ -26,6 +26,7 @@
 #include "dnssd.h"
 #include "logging.h"
 #include "http.h"
+#include "tcp.h"
 #include "usb.h"
 
 #define IGNORE(x) (void)(x)
@@ -480,10 +481,15 @@ static int LIBUSB_CALL usb_exit_on_unplug(libusb_context *context,
   libusb_get_device_descriptor(device, &desc);
 
   if (is_our_device(device, desc)) {
-
     // Unregister DNS-SD for printer on Avahi
     if (g_options.dnssd_data != NULL)
       dnssd_shutdown();
+
+    // TCP clean-up
+    if (g_options.tcp_socket!= NULL)
+      tcp_close(g_options.tcp_socket);
+    if (g_options.tcp6_socket!= NULL)
+      tcp_close(g_options.tcp6_socket);
 
     exit(0);
   }
@@ -495,13 +501,18 @@ static void *usb_pump_events(void *user_data)
 {
   IGNORE(user_data);
 
-  for (;;) {
-    if (g_options.terminate)
-      return NULL;
+  NOTE("USB unplug event observer thread starting");
+
+  while (!g_options.terminate) {
     // NOTE: This is a blocking call so
     // no need for sleep()
-    libusb_handle_events_completed(NULL, NULL);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
+    libusb_handle_events_timeout_completed(NULL, &tv, NULL);
   }
+
+  NOTE("USB unplug event observer thread terminating");
 
   return NULL;
 }
@@ -528,8 +539,7 @@ void usb_register_callback(struct usb_sock_t *usb)
 				     NULL,
 				     NULL);
   if (status == LIBUSB_SUCCESS) {
-    pthread_t thread_handle;
-    pthread_create(&thread_handle, NULL, &usb_pump_events, NULL);
+    pthread_create(&(g_options.usb_event_thread_handle), NULL, &usb_pump_events, NULL);
     NOTE("Registered unplug callback");
   } else
     ERR("Failed to register unplug callback");

@@ -14,6 +14,8 @@
 
 #pragma once
 #include <stdint.h>
+#include <pthread.h>
+
 #include "dnssd.h"
 
 enum log_target {
@@ -47,6 +49,9 @@ struct options {
   // Global variables
   int terminate;
   dnssd_t *dnssd_data;
+  pthread_t usb_event_thread_handle;
+  struct tcp_sock_t *tcp_socket;
+  struct tcp_sock_t *tcp6_socket;
 };
 
 extern struct options g_options;

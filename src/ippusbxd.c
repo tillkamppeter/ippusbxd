@@ -337,11 +337,12 @@ static void start_daemon()
 
   // Capture a socket
   uint16_t desired_port = g_options.desired_port;
-  struct tcp_sock_t *tcp_socket = NULL, *tcp6_socket = NULL;
+  g_options.tcp_socket = NULL;
+  g_options.tcp6_socket = NULL;
   for (;;) {
-    tcp_socket = tcp_open(desired_port, g_options.interface);
-    tcp6_socket = tcp6_open(desired_port, g_options.interface);
-    if (tcp_socket || tcp6_socket || g_options.only_desired_port)
+    g_options.tcp_socket = tcp_open(desired_port, g_options.interface);
+    g_options.tcp6_socket = tcp6_open(desired_port, g_options.interface);
+    if (g_options.tcp_socket || g_options.tcp6_socket || g_options.only_desired_port)
       break;
     // Search for a free port
     desired_port ++;
@@ -354,13 +355,13 @@ static void start_daemon()
       desired_port = 49152;
     NOTE("Access to desired port failed, trying alternative port %d", desired_port);
   }
-  if (tcp_socket == NULL && tcp6_socket == NULL)
+  if (g_options.tcp_socket == NULL && g_options.tcp6_socket == NULL)
     goto cleanup_tcp;
 
-  if (tcp_socket)
-    g_options.real_port = tcp_port_number_get(tcp_socket);
+  if (g_options.tcp_socket)
+    g_options.real_port = tcp_port_number_get(g_options.tcp_socket);
   else
-    g_options.real_port = tcp_port_number_get(tcp6_socket);
+    g_options.real_port = tcp_port_number_get(g_options.tcp6_socket);
   if (desired_port != 0 && g_options.only_desired_port == 1 &&
       desired_port != g_options.real_port) {
     ERR("Received port number did not match requested port number."
@@ -371,7 +372,7 @@ static void start_daemon()
   fflush(stdout);
 
   NOTE("Port: %d, IPv4 %savailable, IPv6 %savailable",
-       g_options.real_port, tcp_socket ? "" : "not ", tcp6_socket ? "" : "not ");
+       g_options.real_port, g_options.tcp_socket ? "" : "not ", g_options.tcp6_socket ? "" : "not ");
 
   // Lose connection to caller
   uint16_t pid;
@@ -432,7 +433,7 @@ static void start_daemon()
 
     // For each request/response round we use the socket (IPv4 or
     // IPv6) which receives data first
-    args->tcp = tcp_conn_select(tcp_socket, tcp6_socket);
+    args->tcp = tcp_conn_select(g_options.tcp_socket, g_options.tcp6_socket);
     if (g_options.terminate)
       goto cleanup_thread;
     if (args->tcp == NULL) {
@@ -484,13 +485,16 @@ static void start_daemon()
       usleep(1000000);
   }
 
-  // TCP clean-up
-  if (tcp_socket!= NULL)
-    tcp_close(tcp_socket);
-  if (tcp6_socket!= NULL)
-    tcp_close(tcp6_socket);
- cleanup_usb:
+  // Wait for USB unplug event observer thread to terminate
+  pthread_join(g_options.usb_event_thread_handle, NULL);
 
+  // TCP clean-up
+  if (g_options.tcp_socket!= NULL)
+    tcp_close(g_options.tcp_socket);
+  if (g_options.tcp6_socket!= NULL)
+    tcp_close(g_options.tcp6_socket);
+
+ cleanup_usb:
   // USB clean-up and final reset of the printer
   if (usb_sock != NULL)
     usb_close(usb_sock);
