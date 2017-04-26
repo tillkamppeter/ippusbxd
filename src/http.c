@@ -51,25 +51,25 @@ void message_free(struct http_message_t *msg)
 static void packet_check_completion(struct http_packet_t *pkt)
 {
   struct http_message_t *msg = pkt->parent_message;
-  // Msg full
+  /* Msg full */
   if (msg->claimed_size && msg->received_size >= msg->claimed_size) {
     msg->is_completed = 1;
     NOTE("http: Message completed: Received size >= claimed size");
 
-    // Sanity check
+    /* Sanity check */
     if (msg->spare_filled > 0)
       ERR_AND_EXIT("Msg spare not empty upon completion");
   }
 
-  // Pkt full
+  /* Pkt full */
   if (pkt->expected_size && pkt->filled_size >= pkt->expected_size) {
     pkt->is_completed = 1;
     NOTE("http: Packet completed: Packet full");
   }
 
-  // Pkt over capacity
+  /* Pkt over capacity */
   if (pkt->filled_size > pkt->buffer_capacity) {
-    // Santiy check
+    /* Santiy check */
     ERR_AND_EXIT("Overflowed packet buffer");
   }
 }
@@ -86,32 +86,32 @@ static int doesMatch(const char *matcher, size_t matcher_len,
 static int inspect_header_field(struct http_packet_t *pkt, size_t header_size,
                                 char *key, size_t key_size)
 {
-  // Find key
+  /* Find key */
   uint8_t *pos = memmem(pkt->buffer, header_size, key, key_size);
   if (pos == NULL)
     return -1;
 
-  // Find first digit
+  /* Find first digit */
   size_t number_pos = (size_t) (pos - pkt->buffer) + key_size;
   while (number_pos < pkt->filled_size && !isdigit(pkt->buffer[number_pos]))
     ++number_pos;
 
-  // Find next non-digit
+  /* Find next non-digit */
   size_t number_end = number_pos;
   while (number_end < pkt->filled_size && isdigit(pkt->buffer[number_end]))
     ++number_end;
 
-  // Failed to find next non-digit
-  // header field might be broken
+  /* Failed to find next non-digit
+     header field might be broken */
   if (number_end >= pkt->filled_size)
     return -1;
 
-  // Temporary stringification of buffer for atoi()
+  /* Temporary stringification of buffer for atoi() */
   uint8_t original_char = pkt->buffer[number_end];
   pkt->buffer[number_end] = '\0';
   int val = atoi((const char *)(pkt->buffer + number_pos));
 
-  // Restore buffer
+  /* Restore buffer */
   pkt->buffer[number_end] = original_char;
   return val;
 }
@@ -129,7 +129,7 @@ static void packet_store_excess(struct http_packet_t *pkt)
   size_t non_spare = pkt->expected_size;
   NOTE("HTTP: Storing %d bytes of excess", spare_size);
 
-  // Align to BUFFER_STEP
+  /* Align to BUFFER_STEP */
   size_t needed_size = 0;
   needed_size += spare_size / BUFFER_STEP;
   needed_size += (spare_size % BUFFER_STEP) > 0 ? BUFFER_STEP : 0;
@@ -160,7 +160,7 @@ static void packet_take_spare(struct http_packet_t *pkt)
   if (pkt->filled_size > 0)
     ERR_AND_EXIT("pkt should be empty when loading msg spare");
 
-  // Take message's buffer
+  /* Take message's buffer */
   size_t msg_size = msg->spare_capacity;
   size_t msg_filled = msg->spare_filled;
   uint8_t *msg_buffer = msg->spare_buffer;
@@ -176,14 +176,14 @@ static void packet_take_spare(struct http_packet_t *pkt)
 
 static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 {
-  // NOTE:
-  // chunks can have trailers which are
-  // tacked on http header fields. 
-  // NOTE:
-  // chunks may also have extensions.
-  // No one uses or supports them.
+  /* NOTE:
+     chunks can have trailers which are
+     tacked on http header fields.
+     NOTE:
+     chunks may also have extensions.
+     No one uses or supports them. */
 
-  // Find end of size string
+  /* Find end of size string */
   if (pkt->filled_size >= SSIZE_MAX)
     ERR_AND_EXIT("Buffer beyond sane size");
 
@@ -195,25 +195,25 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
 
     uint8_t *buf = pkt->buffer;
     if (size_end < 0) {
-      // No extension
+      /* No extension */
       if (i + 1 < max &&
-	  (buf[i] == '\r' &&      // CR
-	   buf[i + 1] == '\n')) { // LF
+	  (buf[i] == '\r' &&      /* CR */
+	   buf[i + 1] == '\n')) { /* LF */
 	size_end = i + 1;
 	miniheader_end = size_end;
 	delimiter_start = i;
 	break;
       }
 
-      // No extension
-      if (buf[i] == '\n') { // LF
+      /* No extension */
+      if (buf[i] == '\n') { /* LF */
 	size_end = i;
 	miniheader_end = size_end;
 	delimiter_start = i;
 	break;
       }
 
-      // Has extensions
+      /* Has extensions */
       if (buf[i] == ';') {
 	size_end = i;
 	continue;
@@ -221,14 +221,14 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
     }
     if (miniheader_end < 0) {
       if (i + 1 < max &&
-	  (buf[i] == '\r' &&      // CR
-	   buf[i + 1] == '\n')) { // LF
+	  (buf[i] == '\r' &&      /* CR */
+	   buf[i + 1] == '\n')) { /* LF */
 	miniheader_end = i + 1;
 	delimiter_start = i;
 	break;
       }
 
-      if (buf[i] == '\n') { // LF
+      if (buf[i] == '\n') { /* LF */
 	miniheader_end = i;
 	delimiter_start = i;
 	break;
@@ -237,14 +237,14 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
   }
 
   if (miniheader_end < 0) {
-    // NOTE: knowing just the size field
-    // is not enough since the extensions
-    // are not included in the size
+    /* NOTE: knowing just the size field
+       is not enough since the extensions
+       are not included in the size */
     NOTE("failed to find chunk mini-header so far");
     return -1;
   }
 
-  // Temporary stringification for strtol()
+  /* Temporary stringification for strtol() */
   uint8_t original_char = *(pkt->buffer + size_end);
   *(pkt->buffer + size_end) = '\0';
   size_t size = strtoul((char *)pkt->buffer, NULL, 16);
@@ -254,31 +254,31 @@ static ssize_t packet_find_chunked_size(struct http_packet_t *pkt)
     ERR_AND_EXIT("chunk size is insane");
 
   if (size > 0) {
-    // Regular chunk
-    ssize_t chunk_size = (ssize_t) size; // Chunk body
-    chunk_size += miniheader_end + 1; // Mini-header
-    chunk_size += 2; // Trailing CRLF
+    /* Regular chunk */
+    ssize_t chunk_size = (ssize_t) size; /* Chunk body */
+    chunk_size += miniheader_end + 1; /* Mini-header */
+    chunk_size += 2; /* Trailing CRLF */
     NOTE("HTTP: Chunk size: %lu", chunk_size);
     return (ssize_t) chunk_size;
   }
 
-  // Terminator chunk
-  // May have trailers in body
+  /* Terminator chunk
+     May have trailers in body */
   ssize_t full_size = -1;
   for (ssize_t i = delimiter_start; i < max; i++) {
     uint8_t *buf = pkt->buffer;
     if (i + 3 < max &&
-	(buf[i] == '\r' &&      // CR
-	 buf[i + 1] == '\n' &&  // LF
-	 buf[i + 2] == '\r' &&  // CR
-	 buf[i + 3] == '\n')) { // LF
+	(buf[i] == '\r' &&      /* CR */
+	 buf[i + 1] == '\n' &&  /* LF */
+	 buf[i + 2] == '\r' &&  /* CR */
+	 buf[i + 3] == '\n')) { /* LF */
       full_size = i + 4;
       break;
     }
 
     if (i + 1 < max &&
-	buf[i] == '\n' &&     // LF
-	buf[i + 1] == '\n') { // LF
+	buf[i] == '\n' &&     /* LF */
+	buf[i + 1] == '\n') { /* LF */
       full_size = i + 2;
       break;
     }
@@ -306,9 +306,9 @@ static ssize_t packet_get_header_size(struct http_packet_t *pkt)
   * http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.3
   */
 
-  // Find header
+  /* Find header */
   for (size_t i = 0; i < pkt->filled_size && i < SSIZE_MAX; i++) {
-    // two \r\n pairs
+    /* two \r\n pairs */
     if ((i + 3) < pkt->filled_size &&
 	'\r' == pkt->buffer[i] &&
 	'\n' == pkt->buffer[i + 1] &&
@@ -318,7 +318,7 @@ static ssize_t packet_get_header_size(struct http_packet_t *pkt)
       goto found;
     }
 
-    // two \n pairs
+    /* two \n pairs */
     if ((i + 1) < pkt->filled_size &&
 	'\n' == pkt->buffer[i] &&
 	'\n' == pkt->buffer[i + 1]) {
@@ -361,12 +361,12 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
 
   ssize_t header_size_raw = packet_get_header_size(pkt);
   if (header_size_raw < 0) {
-    // We don't have the header yet
+    /* We don't have the header yet */
     goto do_ret;
   }
   size_t header_size = (size_t) header_size_raw;
 
-  // Try Transfer-Encoding Chunked
+  /* Try Transfer-Encoding Chunked */
   char xfer_encode_str[] = "Transfer-Encoding: chunked";
   size_t xfer_encode_str_size = sizeof(xfer_encode_str) - 1;
   uint8_t *xfer_encode_pos = memmem(pkt->buffer, header_size,
@@ -378,7 +378,7 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
     goto do_ret;
   }
 
-  // Try Content-Length
+  /* Try Content-Length */
   char content_length_str[] = "Content-Length: ";
   ssize_t contlen_size =
     inspect_header_field(pkt, header_size,
@@ -389,8 +389,8 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
     goto do_ret;
   }
 
-  // GET requests (start with GET) or answers from the server (start
-  // with HTTP)
+  /* GET requests (start with GET) or answers from the server (start
+     with HTTP) */
   if (doesMatch("GET", 3, pkt->buffer, pkt->filled_size) ||
       doesMatch("HTTP", 4, pkt->buffer, pkt->filled_size)) {
     size = header_size;
@@ -398,7 +398,7 @@ enum http_request_t packet_find_type(struct http_packet_t *pkt)
     goto do_ret;
   }
 
-  // No size was detectable yet header was found
+  /* No size was detectable yet header was found */
   type = HTTP_UNKNOWN;
   size = 0;
 
@@ -412,7 +412,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 {
   struct http_message_t *msg = pkt->parent_message;
 
-  // Check Cache
+  /* Check Cache */
   if (pkt->expected_size > 0)
     goto pending_known;
 
@@ -420,13 +420,13 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
     msg->type = packet_find_type(pkt);
 
     if (HTTP_CHUNKED == msg->type) {
-      // Note: this was the packet with the
-      // header of our chunked message.
+      /* Note: this was the packet with the
+	 header of our chunked message. */
 
-      // Save any non-header data we got
+      /* Save any non-header data we got */
       ssize_t header_size = packet_get_header_size(pkt);
 
-      // Sanity check
+      /* Sanity check */
       if (header_size < 0 ||
 	  (size_t)header_size > pkt->filled_size)
 	ERR_AND_EXIT("HTTP: Could not find header twice");
@@ -441,12 +441,12 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
   if (HTTP_CHUNKED == msg->type) {
     if (pkt->filled_size == 0) {
-      // Grab chunk's mini-header
+      /* Grab chunk's mini-header */
       goto pending_known;
     }
 
     if (pkt->expected_size == 0) {
-      // Check chunk's mini-header
+      /* Check chunk's mini-header */
       ssize_t size = packet_find_chunked_size(pkt);
       if (size <= 0) {
 	ERR("=============================================");
@@ -466,16 +466,16 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
     goto pending_known;
   }
   if (HTTP_HEADER_ONLY == msg->type) {
-    // Note: we can only know it is header only
-    // when the buffer already contains the header.
-    // So this next call cannot fail.
+    /* Note: we can only know it is header only
+       when the buffer already contains the header.
+       So this next call cannot fail. */
     pkt->expected_size = (size_t) packet_get_header_size(pkt);
     msg->claimed_size = pkt->expected_size;
     goto pending_known;
   }
   if (HTTP_CONTENT_LENGTH == msg->type) {
-    // Note: find_header() has
-    // filled msg's claimed_size
+    /* Note: find_header() has
+       filled msg's claimed_size */
     msg->claimed_size = msg->claimed_size;
     pkt->expected_size = msg->claimed_size;
     goto pending_known;
@@ -483,7 +483,7 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
 
  pending_known:
 
-  // Save excess data
+  /* Save excess data */
   if (pkt->expected_size && pkt->filled_size > pkt->expected_size)
     packet_store_excess(pkt);
 
@@ -493,13 +493,13 @@ size_t packet_pending_bytes(struct http_packet_t *pkt)
   if (expected == 0)
     expected = pkt->buffer_capacity;
 
-  // Sanity check
+  /* Sanity check */
   if (expected < pkt->filled_size)
     ERR_AND_EXIT("Expected cannot be larger than filled");
 
   size_t pending = expected - pkt->filled_size;
 
-  // Expand buffer as needed
+  /* Expand buffer as needed */
   while (pending + pkt->filled_size > pkt->buffer_capacity) {
     ssize_t size_added = packet_expand(pkt);
     if (size_added < 0) {
@@ -535,7 +535,7 @@ void packet_mark_received(struct http_packet_t *pkt, size_t received)
     ERR_AND_EXIT("Overflowed packet's buffer");
 
   if (pkt->expected_size && pkt->filled_size > pkt->expected_size) {
-    // Store excess data
+    /* Store excess data */
     packet_store_excess(pkt);
   }
 }
@@ -555,7 +555,7 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
   pkt->parent_message = parent_msg;
   pkt->expected_size = 0;
 
-  // Claim any spare data from prior packets
+  /* Claim any spare data from prior packets */
   packet_take_spare(pkt);
 
   if (pkt->buffer == NULL) {
@@ -566,7 +566,7 @@ struct http_packet_t *packet_new(struct http_message_t *parent_msg)
       return NULL;
     }
 
-    // Assemble packet
+    /* Assemble packet */
     pkt->buffer = buf;
     pkt->buffer_capacity = capacity;
     pkt->filled_size = 0;
@@ -581,7 +581,7 @@ void packet_free(struct http_packet_t *pkt)
   free(pkt);
 }
 
-#define MAX_PACKET_SIZE (1 << 26) // 64MiB
+#define MAX_PACKET_SIZE (1 << 26) /* 64MiB */
 ssize_t packet_expand(struct http_packet_t *pkt)
 {
   size_t cur_size = pkt->buffer_capacity;
@@ -594,7 +594,7 @@ ssize_t packet_expand(struct http_packet_t *pkt)
 
   uint8_t *new_buf = realloc(pkt->buffer, new_size);
   if (new_buf == NULL) {
-    // If realloc fails the original buffer is still valid
+    /* If realloc fails the original buffer is still valid */
     WARN("Failed to expand packet");
     return 0;
   }

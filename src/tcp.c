@@ -43,24 +43,24 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
     goto error;
   }
 
-  // Open [S]ocket [D]escriptor
+  /* Open [S]ocket [D]escriptor */
   this->sd = -1;
   this->sd = socket(AF_INET, SOCK_STREAM, 0);
   if (this->sd < 0) {
     ERR("IPv4 socket open failed");
     goto error;
   }
-  // Set SO_REUSEADDR option to allow for a clean host/port unbinding even with
-  // pending requests on shutdown of ippusbxd. Otherwise the port will stay
-  // unavailable for a certain kernel-defined timeout. See also
-  // http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c
+  /* Set SO_REUSEADDR option to allow for a clean host/port unbinding even with
+     pending requests on shutdown of ippusbxd. Otherwise the port will stay
+     unavailable for a certain kernel-defined timeout. See also
+     http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c */
   int true = 1;
   if (setsockopt(this->sd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
     ERR("IPv4 setting socket options failed");
     goto error;
   }
 
-  // Find the IP address for the selected interface
+  /* Find the IP address for the selected interface */
   struct ifaddrs *ifaddr, *ifa;
   getifaddrs(&ifaddr);
   for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -75,17 +75,17 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
     goto error;
   }
 
-  // Configure socket params
+  /* Configure socket params */
   struct sockaddr_in addr, *if_addr;
   if_addr = (struct sockaddr_in *) ifa->ifa_addr;
   memset(&addr, 0, sizeof addr);
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = if_addr->sin_addr.s_addr;
-  //addr.sin_addr.s_addr = htonl(0xC0A8000F);
+  /* addr.sin_addr.s_addr = htonl(0xC0A8000F); */
   NOTE("IPv4: Binding to %s:%d", inet_ntoa(if_addr->sin_addr), port);
 
-  // Bind to the interface/IP/port
+  /* Bind to the interface/IP/port */
   if (bind(this->sd,
 	   (struct sockaddr *)&addr,
 	   sizeof addr) < 0) {
@@ -95,7 +95,7 @@ struct tcp_sock_t *tcp_open(uint16_t port, char* interface)
     goto error;
   }
 
-  // Let kernel over-accept max number of connections
+  /* Let kernel over-accept max number of connections */
   if (listen(this->sd, HTTP_MAX_PENDING_CONNS) < 0) {
     ERR("IPv4 listen failed on socket");
     goto error;
@@ -121,24 +121,24 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
     goto error;
   }
 
-  // Open [S]ocket [D]escriptor
+  /* Open [S]ocket [D]escriptor */
   this->sd = -1;
   this->sd = socket(AF_INET6, SOCK_STREAM, 0);
   if (this->sd < 0) {
     ERR("Ipv6 socket open failed");
     goto error;
   }
-  // Set SO_REUSEADDR option to allow for a clean host/port unbinding even with
-  // pending requests on shutdown of ippusbxd. Otherwise the port will stay
-  // unavailable for a certain kernel-defined timeout. See also
-  // http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c
+  /* Set SO_REUSEADDR option to allow for a clean host/port unbinding even with
+     pending requests on shutdown of ippusbxd. Otherwise the port will stay
+     unavailable for a certain kernel-defined timeout. See also
+     http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c */
   int true = 1;
   if (setsockopt(this->sd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
     ERR("IPv6 setting socket options failed");
     goto error;
   }
 
-  // Find the IP address for the selected interface
+  /* Find the IP address for the selected interface */
   struct ifaddrs *ifaddr, *ifa;
   getifaddrs(&ifaddr);
   for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -153,7 +153,7 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
     goto error;
   }
 
-  // Configure socket params
+  /* Configure socket params */
   struct sockaddr_in6 addr, *if_addr;
   char buf[64];
   if_addr = (struct sockaddr_in6 *) ifa->ifa_addr;
@@ -170,7 +170,7 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
   }
   NOTE("IPv6: Binding to [%s]:%d", buf, port);
 
-  // Bind to the interface/IP/port
+  /* Bind to the interface/IP/port */
   if (bind(this->sd,
 	   (struct sockaddr *)&addr,
 	   sizeof addr) < 0) {
@@ -180,7 +180,7 @@ struct tcp_sock_t *tcp6_open(uint16_t port, char* interface)
     goto error;
   }
 
-  // Let kernel over-accept max number of connections
+  /* Let kernel over-accept max number of connections */
   if (listen(this->sd, HTTP_MAX_PENDING_CONNS) < 0) {
     ERR("IPv6 listen failed on socket");
     goto error;
@@ -224,7 +224,7 @@ uint16_t tcp_port_number_get(struct tcp_sock_t *sock)
 struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
                                      struct http_message_t *msg)
 {
-  // Alloc packet ==---------------------------------------------------==
+  /* Alloc packet ==---------------------------------------------------== */
   struct http_packet_t *pkt = packet_new(msg);
   if (pkt == NULL) {
     ERR("failed to create packet for incoming tcp message");
@@ -258,7 +258,7 @@ struct http_packet_t *tcp_packet_get(struct tcp_conn_t *tcp,
     if (gotten_size == 0) {
       tcp->is_closed = 1;
       if (pkt->filled_size == 0) {
-	// Client closed TCP conn
+	/* Client closed TCP conn */
 	goto error;
       } else {
 	break;
@@ -364,10 +364,10 @@ struct tcp_conn_t *tcp_conn_select(struct tcp_sock_t *sock,
 
 void tcp_conn_close(struct tcp_conn_t *conn)
 {
-  // Unbind host/port cleanly even with pending requests. Otherwise
-  // the port will stay unavailable for a certain kernel-defined
-  // timeout. See also
-  // http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c
+  /* Unbind host/port cleanly even with pending requests. Otherwise
+     the port will stay unavailable for a certain kernel-defined
+     timeout. See also
+     http://stackoverflow.com/questions/10619952/how-to-completely-destroy-a-socket-connection-in-c */
   shutdown(conn->sd, SHUT_RDWR);
 
   close(conn->sd);

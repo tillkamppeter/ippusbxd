@@ -34,13 +34,13 @@ struct http_message_t {
   size_t unreceived_size;
   uint8_t is_completed;
 
-  // Detected from child packets
+  /* Detected from child packets */
   size_t claimed_size;
   size_t received_size;
 };
 
 struct http_packet_t {
-  // Cache
+  /* Cache */
   size_t header_size;
 
   size_t filled_size;

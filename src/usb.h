@@ -17,7 +17,7 @@
 #include <libusb.h>
 #include <semaphore.h>
 
-// In seconds
+/* In seconds */
 #define PRINTER_CRASH_TIMEOUT_RECEIVE (60 * 60 * 6)
 #define PRINTER_CRASH_TIMEOUT_ANSWER 5
 #define CONN_STALE_THRESHHOLD 5

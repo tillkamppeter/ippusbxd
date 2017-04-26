@@ -13,7 +13,7 @@
  * limitations under the License. */
 
 #pragma once
-#include <pthread.h> // For pthread_self()
+#include <pthread.h> /* For pthread_self() */
 #include "options.h"
 #include "dnssd.h"
 #define TID() (pthread_self())

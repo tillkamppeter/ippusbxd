@@ -24,21 +24,21 @@ enum log_target {
 };
 
 struct options {
-  // Runtime configuration
+  /* Runtime configuration */
   uint16_t desired_port;
   int only_desired_port;
   uint16_t real_port;
   char *interface;
   enum log_target log_destination;
 
-  // Behavior
+  /* Behavior */
   int help_mode;
   int verbose_mode;
   int nofork_mode;
   int noprinter_mode;
   int nobroadcast;
 
-  // Printer identity
+  /* Printer identity */
   unsigned char *serial_num;
   int vendor_id;
   int product_id;
@@ -46,7 +46,7 @@ struct options {
   int device;
   char *device_id;
 
-  // Global variables
+  /* Global variables */
   int terminate;
   dnssd_t *dnssd_data;
   pthread_t usb_event_thread_handle;

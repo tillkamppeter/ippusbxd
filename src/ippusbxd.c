@@ -137,25 +137,25 @@ static void *service_connection(void *arg_void)
 
   NOTE("Thread #%d: Starting", thread_num);
 
-  // Detach this thread so that the main thread does not need to join this thread
-  // after termination for clean-up
+  /* Detach this thread so that the main thread does not need to join this thread
+     after termination for clean-up */
   pthread_detach(pthread_self());
 
-  // Register clean-up handler
+  /* Register clean-up handler */
   pthread_cleanup_push(cleanup_handler, &thread_num);
 
-  // Allow immediate cancelling of this thread
+  /* Allow immediate cancelling of this thread */
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
-  // classify priority
+  /* classify priority */
   struct usb_conn_t *usb = NULL;
   int usb_failed = 0;
   while (!arg->tcp->is_closed && usb_failed == 0 && !g_options.terminate) {
     struct http_message_t *server_msg = NULL;
     struct http_message_t *client_msg = NULL;
 
-    // Client's request
+    /* Client's request */
     client_msg = http_message_new();
     if (client_msg == NULL) {
       ERR("Thread #%d: Failed to create client message", thread_num);
@@ -199,8 +199,8 @@ static void *service_connection(void *arg_void)
 	   thread_num, client_msg, pkt,
 	   pkt->filled_size,
 	   hexdump(pkt->buffer, (int)pkt->filled_size));
-      // In no-printer mode we simply ignore passing the
-      // client message on to the printer
+      /* In no-printer mode we simply ignore passing the
+	 client message on to the printer */
       if (arg->usb_sock != NULL) {
 	if (usb_conn_packet_send(usb, pkt) != 0) {
 	  ERR("Thread #%d: M %p P %p: Interface #%d: Unable to send client package via USB",
@@ -229,7 +229,7 @@ static void *service_connection(void *arg_void)
       goto cleanup_subconn;
 
 
-    // Server's response
+    /* Server's response */
     server_msg = http_message_new();
     if (server_msg == NULL) {
       ERR("Thread #%d: Failed to create server message",
@@ -252,16 +252,16 @@ static void *service_connection(void *arg_void)
 	  goto cleanup_subconn;
 	}
       } else {
-	// In no-printer mode we "invent" the answer
-	// of the printer, a simple HTML message as
-	// a pseudo web interface
+	/* In no-printer mode we "invent" the answer
+	   of the printer, a simple HTML message as
+	   a pseudo web interface */
 	pkt = packet_new(server_msg);
 	snprintf((char*)(pkt->buffer),
 		 pkt->buffer_capacity - 1,
 		 "HTTP/1.1 200 OK\r\nContent-Type: text/html; name=ippusbxd.html; charset=UTF-8\r\n\r\n<html><h2>ippusbxd</h2><p>Debug/development mode without connection to IPP-over-USB printer</p></html>\r\n");
 	pkt->filled_size = 183;
-	// End the TCP connection, so that a
-	// web browser does not wait for more data
+	/* End the TCP connection, so that a
+	   web browser does not wait for more data */
 	server_msg->is_completed = 1;
 	arg->tcp->is_closed = 1;
       }
@@ -314,7 +314,7 @@ static void *service_connection(void *arg_void)
   tcp_conn_close(arg->tcp);
   free(arg);
 
-  // Execute clean-up handler
+  /* Execute clean-up handler */
   pthread_cleanup_pop(1);
 
   pthread_exit(NULL);
@@ -322,10 +322,10 @@ static void *service_connection(void *arg_void)
 
 static void start_daemon()
 {
-  // Capture USB device if not in no-printer mode
+  /* Capture USB device if not in no-printer mode */
   struct usb_sock_t *usb_sock;
 
-  // Termination flag
+  /* Termination flag */
   g_options.terminate = 0;
 
   if (g_options.noprinter_mode == 0) {
@@ -335,7 +335,7 @@ static void start_daemon()
   } else
     usb_sock = NULL;
 
-  // Capture a socket
+  /* Capture a socket */
   uint16_t desired_port = g_options.desired_port;
   g_options.tcp_socket = NULL;
   g_options.tcp6_socket = NULL;
@@ -344,14 +344,14 @@ static void start_daemon()
     g_options.tcp6_socket = tcp6_open(desired_port, g_options.interface);
     if (g_options.tcp_socket || g_options.tcp6_socket || g_options.only_desired_port)
       break;
-    // Search for a free port
+    /* Search for a free port */
     desired_port ++;
-    // We failed with 0 as port number or we reached the max
-    // port number
+    /* We failed with 0 as port number or we reached the max
+       port number */
     if (desired_port == 1 || desired_port == 0)
-      // IANA recommendation of 49152 to 65535 for ephemeral
-      // ports
-      // https://en.wikipedia.org/wiki/Ephemeral_port
+      /* IANA recommendation of 49152 to 65535 for ephemeral
+	 ports
+	 https://en.wikipedia.org/wiki/Ephemeral_port */
       desired_port = 49152;
     NOTE("Access to desired port failed, trying alternative port %d", desired_port);
   }
@@ -374,15 +374,15 @@ static void start_daemon()
   NOTE("Port: %d, IPv4 %savailable, IPv6 %savailable",
        g_options.real_port, g_options.tcp_socket ? "" : "not ", g_options.tcp6_socket ? "" : "not ");
 
-  // Lose connection to caller
+  /* Lose connection to caller */
   uint16_t pid;
   if (!g_options.nofork_mode && (pid = fork()) > 0) {
     printf("%u|", pid);
     exit(0);
   }
 
-  // Redirect SIGINT and SIGTERM so that we do a proper shutdown, unregistering
-  // the printer from DNS-SD
+  /* Redirect SIGINT and SIGTERM so that we do a proper shutdown, unregistering
+     the printer from DNS-SD */
 #ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
   sigset(SIGTERM, sigterm_handler);
   sigset(SIGINT, sigterm_handler);
@@ -405,18 +405,18 @@ static void start_daemon()
   NOTE("Using signal handler SIGNAL");
 #endif /* HAVE_SIGSET */
 
-  // Register for unplug event
+  /* Register for unplug event */
   if (usb_can_callback(usb_sock))
     usb_register_callback(usb_sock);
 
-  // DNS-SD-broadcast the printer on the local machine so
-  // that cups-browsed and ippfind will discover it
+  /* DNS-SD-broadcast the printer on the local machine so
+     that cups-browsed and ippfind will discover it */
   if (usb_sock && g_options.nobroadcast == 0) {
     if (dnssd_init() == -1)
       goto cleanup_tcp;
   }
 
-  // Main loop
+  /* Main loop */
   int i = 0;
   pthread_mutex_init(&thread_register_mutex, NULL);
   while (!g_options.terminate) {
@@ -431,8 +431,8 @@ static void start_daemon()
     args->thread_num = i;
     args->usb_sock = usb_sock;
 
-    // For each request/response round we use the socket (IPv4 or
-    // IPv6) which receives data first
+    /* For each request/response round we use the socket (IPv4 or
+       IPv6) which receives data first */
     args->tcp = tcp_conn_select(g_options.tcp_socket, g_options.tcp6_socket);
     if (g_options.terminate)
       goto cleanup_thread;
@@ -469,13 +469,13 @@ static void start_daemon()
   }
 
  cleanup_tcp:
-  // Stop DNS-SD advertising of the printer
+  /* Stop DNS-SD advertising of the printer */
   if (g_options.dnssd_data != NULL)
     dnssd_shutdown();
 
-  // Cancel communication threads which did not terminate by themselves when
-  // stopping ippusbxd, so that no USB communication with the printer can
-  // happen after the final reset
+  /* Cancel communication threads which did not terminate by themselves when
+     stopping ippusbxd, so that no USB communication with the printer can
+     happen after the final reset */
   while (num_service_threads) {
     NOTE("Thread #%d did not terminate, canceling it now ...",
 	 service_threads[0]->thread_num);
@@ -485,17 +485,17 @@ static void start_daemon()
       usleep(1000000);
   }
 
-  // Wait for USB unplug event observer thread to terminate
+  /* Wait for USB unplug event observer thread to terminate */
   pthread_join(g_options.usb_event_thread_handle, NULL);
 
-  // TCP clean-up
+  /* TCP clean-up */
   if (g_options.tcp_socket!= NULL)
     tcp_close(g_options.tcp_socket);
   if (g_options.tcp6_socket!= NULL)
     tcp_close(g_options.tcp6_socket);
 
  cleanup_usb:
-  // USB clean-up and final reset of the printer
+  /* USB clean-up and final reset of the printer */
   if (usb_sock != NULL)
     usb_close(usb_sock);
   return;
@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
     case 'P':
       {
 	long long port = 0;
-	// Request specific port
+	/* Request specific port */
 	port = atoi(optarg);
 	if (port < 0) {
 	  ERR("Port number must be non-negative");
@@ -579,7 +579,7 @@ int main(int argc, char *argv[])
 	break;
       }
     case 'i':
-      // Request a specific network interface
+      /* Request a specific network interface */
       g_options.interface = strdup(optarg);
       break;
     case 'l':
