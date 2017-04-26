@@ -332,8 +332,10 @@ static void start_daemon()
     usb_sock = usb_open();
     if (usb_sock == NULL)
       goto cleanup_usb;
-  } else
+  } else {
     usb_sock = NULL;
+    g_options.device_id = "MFG:Acme;MDL:LaserStar 2000;CMD:AppleRaster,PWGRaster;CLS:PRINTER;DES:Acme LaserStar 2000;SN:001;";
+  }
 
   /* Capture a socket */
   uint16_t desired_port = g_options.desired_port;
@@ -411,7 +413,7 @@ static void start_daemon()
 
   /* DNS-SD-broadcast the printer on the local machine so
      that cups-browsed and ippfind will discover it */
-  if (usb_sock && g_options.nobroadcast == 0) {
+  if (g_options.nobroadcast == 0) {
     if (dnssd_init() == -1)
       goto cleanup_tcp;
   }
