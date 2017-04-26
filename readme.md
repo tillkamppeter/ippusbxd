@@ -46,8 +46,9 @@ Under Fedora:
 Once the dependencies are installed simply run:
   make
 
-That will run a makefile which will inturn run cmake. This makefile also
-supports several GNU-style make commands such as clean, and redep.
+That will run a makefile which will in turn run cmake. This makefile
+also supports several GNU-style make commands such as clean, and
+redep.
 
 Installation on a system with systemd, UDEV, and cups-filters
 =======
@@ -59,15 +60,15 @@ provide non-Mac-OS filters, backends, and cups-browsed. Therefore we
 explain only a method using systemd and UDEV here.
 
 In these systems it is recommended to start ippusbxd via systemd when
-an appropriate printer is connected and discovered by
-UDEV. cups-filters from version 1.13.2 on and CUPS from version 2.2.2
-has everything needed to for driverless printer setup. "driverless"
-means that no printer driver, with the driver being any software or
-data specific to (a) certain printer model(s) is needed. driverless
+an appropriate printer is connected and discovered by UDEV.
+cups-filters from version 1.13.2 on and CUPS from version 2.2.2 has
+everything needed for driverless printer setup. "driverless" means
+that no printer driver, with the driver being any software or data
+specific to (a) certain printer model(s) is needed. driverless
 printing makes use of IPP to allow the client to query the printer's
 capabilities and IPP-over-USB was developed to allow these queries
-also if the printer is not on the network but connected via
-USB. Therefore we can assume that all IPP-over-USB printers support
+also if the printer is not on the network but connected via USB.
+Therefore we can assume that all IPP-over-USB printers support
 driverless printing.
 
 A remark to driverless printing: There are two very similar standards:
@@ -86,6 +87,23 @@ Note that these instructions and the sample files are tested on
 Ubuntu. On other distributions there are perhaps some changes needed,
 for example of the directories where to place the file and of paths in
 the files.
+
+There are two methods to install ippusbxd, one exposing the printer
+on localhost. and one exposing the printer on the dummy0 interface.
+
+Exposing the printer on localhost is the way how the IPP-over-USB
+standard is intended and therefore this how it is intended to proceed
+on production system and especially on Linux distributions.
+Disadvantage of this method is that Avahi needs to be modified so that
+it advertises services on localhost and these only on the local
+machine.
+
+Exposing the printer on the dummy0 interface does not require any
+changes on Avahi, but it is more awkward to set up the syetm and to
+access the printer and its web administration interface.
+
+1. Expose the printer on localhost
+----------------------------------
 
 First, install ippusbxd:
 
@@ -107,6 +125,140 @@ If we would do so, UDEV would kill ippusbxd after a timeout of 5
 minutes. Out of UDEV rules you can only start programs which do not
 need to keep running permanently, like daemons. Therefore we use
 systemd here.
+
+Apply the following patch to the source code of Avahi:
+
+----------
+--- avahi-core/iface-linux.c~	2016-02-09 04:12:59.295979998 -0200
++++ avahi-core/iface-linux.c	2017-04-13 11:25:52.103355254 -0300
+@@ -104,8 +104,8 @@
+         hw->flags_ok =
+             (ifinfomsg->ifi_flags & IFF_UP) &&
+             (!m->server->config.use_iff_running || (ifinfomsg->ifi_flags & IFF_RUNNING)) &&
+-            !(ifinfomsg->ifi_flags & IFF_LOOPBACK) &&
+-            (ifinfomsg->ifi_flags & IFF_MULTICAST) &&
++            ((ifinfomsg->ifi_flags & IFF_LOOPBACK) ||
++             (ifinfomsg->ifi_flags & IFF_MULTICAST)) &&
+             (m->server->config.allow_point_to_point || !(ifinfomsg->ifi_flags & IFF_POINTOPOINT));
+ 
+         /* Handle interface attributes */
+--- avahi-core/iface-pfroute.c~	2015-04-01 01:58:14.149727123 -0300
++++ avahi-core/iface-pfroute.c	2017-04-13 11:28:47.547016465 -0300
+@@ -80,8 +80,8 @@
+   hw->flags_ok =
+     (ifm->ifm_flags & IFF_UP) &&
+     (!m->server->config.use_iff_running || (ifm->ifm_flags & IFF_RUNNING)) &&
+-    !(ifm->ifm_flags & IFF_LOOPBACK) &&
+-    (ifm->ifm_flags & IFF_MULTICAST) &&
++    ((ifm->ifm_flags & IFF_LOOPBACK) ||
++     (ifm->ifm_flags & IFF_MULTICAST)) &&
+     (m->server->config.allow_point_to_point || !(ifm->ifm_flags & IFF_POINTOPOINT));
+ 
+   avahi_free(hw->name);
+@@ -427,8 +427,8 @@
+         hw->flags_ok =
+             (flags & IFF_UP) &&
+             (!m->server->config.use_iff_running || (flags & IFF_RUNNING)) &&
+-            !(flags & IFF_LOOPBACK) &&
+-            (flags & IFF_MULTICAST) &&
++            ((flags & IFF_LOOPBACK) ||
++             (flags & IFF_MULTICAST)) &&
+             (m->server->config.allow_point_to_point || !(flags & IFF_POINTOPOINT));
+         hw->name = avahi_strdup(lifreq->lifr_name);
+         hw->mtu = mtu;
+----------
+
+Build and install Avahi. This makes Avahi not only advertising
+services on the usual network interfaces but also on the "lo"
+(loopback) interface (localhost). The services on the loopback
+interface (on localhost) are only advertised on the local machine, so
+no additional info gets exposed to the network, especially no
+local-only service gets shared by this.
+
+This works well as long as your machine is connected to some kind of
+network (does not necessarily need to be a connection to the Internet,
+a virtual network interface to virtual machines running locally is
+enough). It is possible that the advertising of the printer stops if
+the loopback interface is the only network interface running due to
+lack of a multicast-capable interface.
+
+Now we can restart systemd and UDEV to activate all this:
+
+sudo systemctl daemon-reload
+sudo systemctl restart udev
+
+If we connect and turn on an IPP-over-USB printer, ippusbxd gets
+started and makes the printer available under the IPP URI
+
+ipp://localhost:60000/ipp/print
+
+and its web administration interface under
+
+http://localhost:60000/
+
+(if you have problems with the Chrome browser, use Firefox).
+
+It is also DNS-SD-broadcasted via our modified Avahi on the lo interface.
+
+To set up a print queue you could simply run
+
+lpadmin -p printer -E -v ipp://localhost:60000/ipp/print -meverywhere
+
+The "-meverywhere" makes CUPS auto-generate the PPD file for the
+printer, based on an IPP query of the printer's capabilities,
+independent whether the printer is an IPP Everywhere printer or an
+AirPrint printer.
+
+To create a print queue with the web interface of CUPS
+(http://localhost:631/), look for your printer under the discovered
+network printers (CUPS does not see that it is USB in reality) and
+select the entry which contains "driverless". On the page to select
+the models/PPDs/drivers, also select the entry containing
+"driverless". Then complete the setup as ususal.
+
+The best solution is to let cups-browsed auto-create a print queue
+when the printer gets connected and remove it when the printer gets
+turned off or disconnected (do not worry about option settings,
+cups-browsed saves them).
+
+To do so, edit /etc/cups/cups-browsed.conf making sure that there is a
+line
+
+CreateIPPPrinterQueues driverless
+
+or
+
+CreateIPPPrinterQueues all
+
+and no other line beginning with
+
+CreateIPPPrinterQueues
+
+After editing the file restart cups-browsed with
+
+sudo systemctl stop cups-browsed
+sudo systemctl start cups-browsed
+
+Now you have a print queue whenever the printer is available and no
+print queue cluttering your print dialogs when the printer is not
+available.
+
+2. Expose the printer on the dummy0 interface
+---------------------------------------------
+
+First, install ippusbxd:
+
+sudo cp exe/ippusbxd /usr/sbin
+
+Make sure that this file is owned by root and world-readable and
+-executable.
+
+Now install the files to manage the automatic start of ippusbxd:
+
+sudo cp systemd-udev/55-ippusbxd.rules /lib/udev/rules.d/
+sudo cp systemd-udev/ippusbxd@.service.dummy0 /lib/systemd/system/ippusbxd@.service
+
+Make sure that they are owned by root and world-readable.
 
 Now create a "dummy0" network interface:
 
