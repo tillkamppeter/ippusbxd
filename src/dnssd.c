@@ -198,6 +198,7 @@ dnssd_register(AvahiClient *c)
   const char      *cmd;
   int             pwgraster = 0,
                   appleraster = 0,
+                  pclm = 0,
                   pdf = 0,
                   jpeg = 0;
   char            formats[1024];        /* I - Supported formats */
@@ -256,15 +257,18 @@ dnssd_register(AvahiClient *c)
        (ptr = strcasestr(ptr, "raster")) != NULL) ||
       ((ptr = strcasestr(cmd, "urf")) != NULL))
     appleraster = 1;
+  if ((ptr = strcasestr(cmd, "pclm")) != NULL)
+    pclm = 1;
   if ((ptr = strcasestr(cmd, "pdf")) != NULL)
     pdf = 1;
   if ((ptr = strcasestr(cmd, "jpeg")) != NULL ||
       (ptr = strcasestr(cmd, "jpg")) != NULL)
     jpeg = 1;
-  snprintf(formats, sizeof(formats),"%s%s%s%s",
+  snprintf(formats, sizeof(formats),"%s%s%s%s%s",
 	   (pdf ? "application/pdf," : ""),
 	   (pwgraster ? "image/pwg-raster," : ""),
 	   (appleraster ? "image/urf," : ""),
+	   (pclm ? "application/PCLm," : ""),
 	   (jpeg ? "image/jpeg," : ""));
   formats[strlen(formats) - 1] = '\0';
 
