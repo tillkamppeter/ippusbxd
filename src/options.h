@@ -29,6 +29,7 @@ struct options {
   int only_desired_port;
   uint16_t real_port;
   char *interface;
+  char *unix_socket_path;
   enum log_target log_destination;
 
   /* Behavior */
@@ -37,6 +38,7 @@ struct options {
   int nofork_mode;
   int noprinter_mode;
   int nobroadcast;
+  int unix_socket_mode;
 
   /* Printer identity */
   unsigned char *serial_num;
@@ -52,6 +54,7 @@ struct options {
   pthread_t usb_event_thread_handle;
   struct tcp_sock_t *tcp_socket;
   struct tcp_sock_t *tcp6_socket;
+  struct uds_sock_t *uds_socket;
 };
 
 extern struct options g_options;

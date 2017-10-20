@@ -29,9 +29,11 @@
 #include "tcp.h"
 #include "usb.h"
 #include "dnssd.h"
+#include "uds.h"
 
 struct service_thread_param {
   struct tcp_conn_t *tcp;
+  struct uds_conn_t *uds;
   struct usb_sock_t *usb_sock;
   pthread_t thread_handle;
   int thread_num;
@@ -151,7 +153,11 @@ static void *service_connection(void *arg_void)
   /* classify priority */
   struct usb_conn_t *usb = NULL;
   int usb_failed = 0;
-  while (!arg->tcp->is_closed && usb_failed == 0 && !g_options.terminate) {
+  while (((g_options.unix_socket_mode && !arg->uds->is_closed) ||
+          (!g_options.unix_socket_mode && !arg->tcp->is_closed)) &&
+         usb_failed == 0 && !g_options.terminate) {
+    //  while (!arg->tcp->is_closed && usb_failed == 0 && !g_options.terminate)
+    //  {
     struct http_message_t *server_msg = NULL;
     struct http_message_t *client_msg = NULL;
 
@@ -166,17 +172,22 @@ static void *service_connection(void *arg_void)
 
     while (!client_msg->is_completed && !g_options.terminate) {
       struct http_packet_t *pkt;
-      pkt = tcp_packet_get(arg->tcp, client_msg);
+
+      pkt = (g_options.unix_socket_mode) ? uds_packet_get(arg->uds, client_msg)
+                                         : tcp_packet_get(arg->tcp, client_msg);
+
       if (pkt == NULL) {
-	if (arg->tcp->is_closed) {
-	  NOTE("Thread #%d: M %p: Client closed connection",
-	       thread_num, client_msg);
-	  goto cleanup_subconn;
-	}
-	ERR("Thread #%d: M %p: Got null packet from tcp",
-	    thread_num, client_msg);
-	goto cleanup_subconn;
+        if ((g_options.unix_socket_mode && arg->uds->is_closed) ||
+            (!g_options.unix_socket_mode && arg->tcp->is_closed)) {
+          NOTE("Thread #%d: M %p: Client closed connection", thread_num,
+               client_msg);
+          goto cleanup_subconn;
+        }
+        ERR("Thread #%d: M %p: Got null packet from %s", thread_num,
+            client_msg, g_options.unix_socket_mode ? "uds" : "tcp");
+        goto cleanup_subconn;
       }
+
       if (usb == NULL && arg->usb_sock != NULL) {
 	usb = usb_conn_acquire(arg->usb_sock);
 	if (usb == NULL) {
@@ -195,8 +206,9 @@ static void *service_connection(void *arg_void)
       if (g_options.terminate)
 	goto cleanup_subconn;
 
-      NOTE("Thread #%d: M %p P %p: Pkt from tcp (buffer size: %d)\n===\n%s===",
+      NOTE("Thread #%d: M %p P %p: Pkt from %s (buffer size: %d)\n===\n%s===",
 	   thread_num, client_msg, pkt,
+           g_options.unix_socket_mode ? "uds" : "tcp",
 	   pkt->filled_size,
 	   hexdump(pkt->buffer, (int)pkt->filled_size));
       /* In no-printer mode we simply ignore passing the
@@ -263,7 +275,10 @@ static void *service_connection(void *arg_void)
 	/* End the TCP connection, so that a
 	   web browser does not wait for more data */
 	server_msg->is_completed = 1;
-	arg->tcp->is_closed = 1;
+        if (g_options.unix_socket_mode)
+          arg->uds->is_closed = 1;
+        else
+          arg->tcp->is_closed = 1;
       }
 
       if (g_options.terminate)
@@ -272,12 +287,14 @@ static void *service_connection(void *arg_void)
       NOTE("Thread #%d: M %p P %p: Pkt from usb (buffer size: %d)\n===\n%s===",
 	   thread_num, server_msg, pkt, pkt->filled_size,
 	   hexdump(pkt->buffer, (int)pkt->filled_size));
-      if (tcp_packet_send(arg->tcp, pkt) != 0) {
-	ERR("Thread #%d: M %p P %p: Unable to send client package via TCP",
-	    thread_num,
-	    client_msg, pkt);
-	packet_free(pkt);
-	goto cleanup_subconn;
+
+      if ((g_options.unix_socket_mode && uds_packet_send(arg->uds, pkt) != 0) ||
+          (!g_options.unix_socket_mode && tcp_packet_send(arg->tcp, pkt)) != 0) {
+        ERR("Thread #%d: M %p P %p: Unable to send client package via %s",
+            thread_num, client_msg, pkt,
+            g_options.unix_socket_mode ? "uds" : "tcp");
+        packet_free(pkt);
+        goto cleanup_subconn;
       }
       if (usb != NULL)
 	NOTE("Thread #%d: M %p P %p: Interface #%d: Server pkt done",
@@ -297,11 +314,20 @@ static void *service_connection(void *arg_void)
 	   thread_num, server_msg);
 
   cleanup_subconn:
-    if (usb != NULL && (arg->tcp->is_closed || usb_failed == 1)) {
-      NOTE("Thread #%d: M %p: Interface #%d: releasing usb conn",
-	   thread_num, server_msg, usb->interface_index);
-      usb_conn_release(usb);
-      usb = NULL;
+    if (g_options.unix_socket_mode) {
+      if (usb != NULL && (arg->uds->is_closed || usb_failed == 1)) {
+        NOTE("Thread #%d: M %p: Interface #%d: releasing usb conn", thread_num,
+             server_msg, usb->interface_index);
+        usb_conn_release(usb);
+        usb = NULL;
+      }
+    } else {
+      if (usb != NULL && (arg->tcp->is_closed || usb_failed == 1)) {
+        NOTE("Thread #%d: M %p: Interface #%d: releasing usb conn", thread_num,
+             server_msg, usb->interface_index);
+        usb_conn_release(usb);
+        usb = NULL;
+      }
     }
     if (client_msg != NULL)
       message_free(client_msg);
@@ -311,13 +337,40 @@ static void *service_connection(void *arg_void)
 
   NOTE("Thread #%d: Closing, %s", thread_num,
        g_options.terminate ? "shutdown requested" : "communication thread terminated");
-  tcp_conn_close(arg->tcp);
+  if (g_options.unix_socket_mode)
+    uds_conn_close(arg->uds);
+  else
+    tcp_conn_close(arg->tcp);
   free(arg);
 
   /* Execute clean-up handler */
   pthread_cleanup_pop(1);
 
   pthread_exit(NULL);
+}
+
+static uint16_t open_tcp_socket() {
+  uint16_t desired_port = g_options.desired_port;
+  g_options.tcp_socket = NULL;
+  g_options.tcp6_socket = NULL;
+
+  for (;;) {
+    g_options.tcp_socket = tcp_open(desired_port, g_options.interface);
+    g_options.tcp6_socket = tcp6_open(desired_port, g_options.interface);
+    if (g_options.tcp_socket || g_options.tcp6_socket ||
+        g_options.only_desired_port)
+      break;
+    /* Search for a free port. */
+    desired_port ++;
+    /* We failed with 0 as port number or we reached the max port number. */
+    if (desired_port == 1 || desired_port == 0)
+      /* IANA recommendation of 49152 to 65535 for ephemeral ports. */
+      desired_port = 49152;
+    NOTE("Access to desired port failed, trying alternative port %d",
+         desired_port);
+  }
+
+  return desired_port;
 }
 
 static void start_daemon()
@@ -334,47 +387,41 @@ static void start_daemon()
       goto cleanup_usb;
   } else {
     usb_sock = NULL;
-    g_options.device_id = "MFG:Acme;MDL:LaserStar 2000;CMD:AppleRaster,PWGRaster;CLS:PRINTER;DES:Acme LaserStar 2000;SN:001;";
+    g_options.device_id =
+        "MFG:Acme;MDL:LaserStar "
+        "2000;CMD:AppleRaster,PWGRaster;CLS:PRINTER;DES:Acme LaserStar "
+        "2000;SN:001;";
   }
 
-  /* Capture a socket */
-  uint16_t desired_port = g_options.desired_port;
-  g_options.tcp_socket = NULL;
-  g_options.tcp6_socket = NULL;
-  for (;;) {
-    g_options.tcp_socket = tcp_open(desired_port, g_options.interface);
-    g_options.tcp6_socket = tcp6_open(desired_port, g_options.interface);
-    if (g_options.tcp_socket || g_options.tcp6_socket || g_options.only_desired_port)
-      break;
-    /* Search for a free port */
-    desired_port ++;
-    /* We failed with 0 as port number or we reached the max
-       port number */
-    if (desired_port == 1 || desired_port == 0)
-      /* IANA recommendation of 49152 to 65535 for ephemeral
-	 ports
-	 https://en.wikipedia.org/wiki/Ephemeral_port */
-      desired_port = 49152;
-    NOTE("Access to desired port failed, trying alternative port %d", desired_port);
-  }
-  if (g_options.tcp_socket == NULL && g_options.tcp6_socket == NULL)
-    goto cleanup_tcp;
+  if (g_options.unix_socket_mode) {
+    g_options.uds_socket = uds_open(g_options.unix_socket_path);
+    if (g_options.uds_socket == NULL)
+      goto cleanup_connections;
+    NOTE("Connected to unix socket %s", g_options.unix_socket_path);
+  } else {
+    /* Capture a socket */
+    uint16_t desired_port = open_tcp_socket();
+    if (g_options.tcp_socket == NULL && g_options.tcp6_socket == NULL)
+      goto cleanup_connections;
 
-  if (g_options.tcp_socket)
-    g_options.real_port = tcp_port_number_get(g_options.tcp_socket);
-  else
-    g_options.real_port = tcp_port_number_get(g_options.tcp6_socket);
-  if (desired_port != 0 && g_options.only_desired_port == 1 &&
-      desired_port != g_options.real_port) {
-    ERR("Received port number did not match requested port number."
-	" The requested port number may be too high.");
-    goto cleanup_tcp;
-  }
-  printf("%u|", g_options.real_port);
-  fflush(stdout);
+    if (g_options.tcp_socket)
+      g_options.real_port = tcp_port_number_get(g_options.tcp_socket);
+    else
+      g_options.real_port = tcp_port_number_get(g_options.tcp6_socket);
 
-  NOTE("Port: %d, IPv4 %savailable, IPv6 %savailable",
-       g_options.real_port, g_options.tcp_socket ? "" : "not ", g_options.tcp6_socket ? "" : "not ");
+    if (desired_port != 0 && g_options.only_desired_port == 1 &&
+        desired_port != g_options.real_port) {
+      ERR("Received port number did not match requested port number."
+          " The requested port number may be too high.");
+      goto cleanup_connections;
+    }
+    printf("%u|", g_options.real_port);
+    fflush(stdout);
+
+    NOTE("Port: %d, IPv4 %savailable, IPv6 %savailable", g_options.real_port,
+         g_options.tcp_socket ? "" : "not ",
+         g_options.tcp6_socket ? "" : "not ");
+  }
 
   /* Lose connection to caller */
   uint16_t pid;
@@ -415,7 +462,7 @@ static void start_daemon()
      that cups-browsed and ippfind will discover it */
   if (g_options.nobroadcast == 0) {
     if (dnssd_init() == -1)
-      goto cleanup_tcp;
+      goto cleanup_connections;
   }
 
   /* Main loop */
@@ -433,15 +480,27 @@ static void start_daemon()
     args->thread_num = i;
     args->usb_sock = usb_sock;
 
-    /* For each request/response round we use the socket (IPv4 or
-       IPv6) which receives data first */
-    args->tcp = tcp_conn_select(g_options.tcp_socket, g_options.tcp6_socket);
-    if (g_options.terminate)
-      goto cleanup_thread;
-    if (args->tcp == NULL) {
-      ERR("Preparing thread #%d: Failed to open tcp connection", i);
-      goto cleanup_thread;
+    if (g_options.unix_socket_mode) {
+      args->uds = uds_connect(g_options.uds_socket);
+      if (g_options.terminate)
+        goto cleanup_thread;
+      if (args->uds == NULL) {
+        ERR("Preparing thread %d: Failed to open uds connection", i);
+        goto cleanup_thread;
+      }
+    } else {
+      /* For each request/response round we use the socket (IPv4 or
+         IPv6) which receives data first */
+      args->tcp = tcp_conn_select(g_options.tcp_socket, g_options.tcp6_socket);
+      if (g_options.terminate)
+        goto cleanup_thread;
+      if (args->tcp == NULL) {
+        ERR("Preparing thread #%d: Failed to open tcp connection", i);
+        goto cleanup_thread;
+      }
     }
+
+    NOTE("Opened connection");
 
     pthread_mutex_lock(&thread_register_mutex);
     register_service_thread(&num_service_threads, &service_threads, args);
@@ -459,18 +518,21 @@ static void start_daemon()
       goto cleanup_thread;
     }
 
+    NOTE("Connected to unix socket %s", g_options.unix_socket_path);
     continue;
 
   cleanup_thread:
     if (args != NULL) {
       if (args->tcp != NULL)
 	tcp_conn_close(args->tcp);
+      if (args->uds != NULL)
+        uds_conn_close(args->uds);
       free(args);
     }
     break;
   }
 
- cleanup_tcp:
+ cleanup_connections:
   /* Stop DNS-SD advertising of the printer */
   if (g_options.dnssd_data != NULL)
     dnssd_shutdown();
@@ -495,6 +557,10 @@ static void start_daemon()
     tcp_close(g_options.tcp_socket);
   if (g_options.tcp6_socket!= NULL)
     tcp_close(g_options.tcp6_socket);
+
+  /* UDS clean-up */
+  if (g_options.uds_socket != NULL)
+    uds_close(g_options.uds_socket);
 
  cleanup_usb:
   /* USB clean-up and final reset of the printer */
@@ -533,6 +599,7 @@ int main(int argc, char *argv[])
     {"from-port",    required_argument, 0,  'P' },
     {"only-port",    required_argument, 0,  'p' },
     {"interface",    required_argument, 0,  'i' },
+    {"uds-path",     required_argument, 0,  'U' },
     {"logging",      no_argument,       0,  'l' },
     {"debug",        no_argument,       0,  'd' },
     {"verbose",      no_argument,       0,  'q' },
@@ -630,6 +697,9 @@ int main(int argc, char *argv[])
     case 'B':
       g_options.nobroadcast = 1;
       break;
+    case 'U':
+      g_options.unix_socket_mode = 1;
+      g_options.unix_socket_path = strdup(optarg);
     }
   }
 

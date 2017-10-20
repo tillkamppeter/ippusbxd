@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -21,10 +22,14 @@
 #include <unistd.h>
 
 #include "http.h"
+#include "logging.h"
+#include "options.h"
 #include "uds.h"
 
 struct uds_sock_t *uds_open(const char *path) {
   struct uds_sock_t *sock = calloc(1, sizeof(*sock));
+  NOTE("Unlinking %s", path);
+  unlink(path);
   if (sock == NULL) {
     ERR("UDS: Allocating memory for socket failed");
     goto error;
@@ -46,12 +51,12 @@ struct uds_sock_t *uds_open(const char *path) {
   memset(&addr, 0, sizeof(addr));
 
   addr.sun_family = AF_UNIX;
-  strcpy(addr.sun_family, path);
+  strcpy(addr.sun_path, path);
 
   NOTE("UDS: Binding to %s", path);
 
-  if (bind(addr, (struct sockaddr *)addr, sizeof(addr))) {
-    ERR("UDS: Binding to socket failed");
+  if (bind(sock->fd, (struct sockaddr *)&addr, sizeof(addr))) {
+    ERR("UDS: Binding to socket failed - %s", strerror(errno));
     goto error;
   }
 
@@ -92,8 +97,27 @@ struct uds_conn_t *uds_connect(struct uds_sock_t *sock) {
     goto error;
   }
 
-  if ((conn->fd = accept(sock->fd, NULL, NULL)) < 0) {
-    ERR("UDS: Accepting connection failed");
+  fd_set rdfs;
+  FD_ZERO(&rdfs);
+  FD_SET(sock->fd, &rdfs);
+  int nfds = sock->fd + 1;
+  int retval = select(nfds, &rdfs, NULL, NULL, NULL);
+
+  if (g_options.terminate)
+    goto error;
+
+  if (retval < 1) {
+    ERR("Failed to open uds connection");
+    goto error;
+  }
+
+  if (sock && FD_ISSET(sock->fd, &rdfs)) {
+    if ((conn->fd = accept(sock->fd, NULL, NULL)) < 0) {
+      ERR("UDS: Accepting connection failed");
+      goto error;
+    }
+  } else {
+    ERR("Select failed");
     goto error;
   }
 
@@ -115,7 +139,7 @@ struct http_packet_t *uds_packet_get(struct uds_conn_t *conn,
                                      struct http_message_t *msg) {
   struct http_packet_t *pkt = packet_new(msg);
   if (pkt == NULL) {
-    ERR("UDS: Allocating memory for incoming tcp message failed");
+    ERR("UDS: Allocating memory for incoming uds message failed");
     goto error;
   }
 
@@ -137,11 +161,12 @@ struct http_packet_t *uds_packet_get(struct uds_conn_t *conn,
   while (want_size != 0 && !msg->is_completed && !g_options.terminate) {
     NOTE("UDS: Getting %d bytes", want_size);
     uint8_t *subbuffer = pkt->buffer + pkt->filled_size;
-    ssize_t gotten_size = recv(tcp->sd, subbuffer, want_size, 0);
+    ssize_t gotten_size = recv(conn->fd, subbuffer, want_size, 0);
 
     if (gotten_size < 0) {
       int errno_saved = errno;
-      ERR("UDS: recv failed with err %d:%s", errno, strerror(errno));
+      ERR("UDS: recv failed with err %d:%s", errno_saved,
+          strerror(errno_saved));
       conn->is_closed = 1;
       goto error;
     }
